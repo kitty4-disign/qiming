@@ -12,6 +12,8 @@ test("capabilityForPath maps LLM features to llm", () => {
   assert.equal(capabilityForPath("/book"), "llm");
   assert.equal(capabilityForPath("/space/learning"), "llm"); // Mastery Path
   assert.equal(capabilityForPath("/playground"), "llm");
+  assert.equal(capabilityForPath("/education"), "llm");
+  assert.equal(capabilityForPath("/education/course"), "llm");
 });
 
 test("capabilityForPath matches nested routes by prefix", () => {

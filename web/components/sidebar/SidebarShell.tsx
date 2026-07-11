@@ -12,6 +12,7 @@ import {
   Brain,
   ChevronDown,
   Github,
+  GraduationCap,
   HeartHandshake,
   House,
   LayoutGrid,
@@ -41,6 +42,13 @@ interface NavEntry {
 }
 
 const PRIMARY_NAV: NavEntry[] = [
+  {
+    href: "/education",
+    label: "AI Classroom",
+    icon: GraduationCap,
+    tooltipKey: "AI Classroom tooltip",
+    requires: "llm",
+  },
   {
     href: "/home",
     label: "Home",

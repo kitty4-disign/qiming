@@ -8,6 +8,7 @@ import {
   PlayCircle,
   type LucideIcon,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import type { LearningModality } from "@/lib/education-types";
 
@@ -17,11 +18,11 @@ const MODALITIES: Array<{
   description: string;
   icon: LucideIcon;
 }> = [
-  { value: "dialogue", label: "对话讲解", description: "边问边学", icon: MessageCircle },
-  { value: "animation", label: "动画演示", description: "看见过程", icon: PlayCircle },
-  { value: "storybook", label: "故事绘本", description: "用故事理解", icon: BookOpen },
-  { value: "coding", label: "编程实践", description: "动手运行", icon: Code2 },
-  { value: "quiz", label: "随堂测验", description: "及时检查", icon: ClipboardCheck },
+  { value: "dialogue", label: "Dialogue Learning", description: "Dialogue Learning description", icon: MessageCircle },
+  { value: "animation", label: "Animation Learning", description: "Animation Learning description", icon: PlayCircle },
+  { value: "storybook", label: "Storybook Learning", description: "Storybook Learning description", icon: BookOpen },
+  { value: "coding", label: "Coding Learning", description: "Coding Learning description", icon: Code2 },
+  { value: "quiz", label: "Quiz Learning", description: "Quiz Learning description", icon: ClipboardCheck },
 ];
 
 interface ModalitySelectorProps {
@@ -30,6 +31,7 @@ interface ModalitySelectorProps {
 }
 
 export function ModalitySelector({ value, onChange }: ModalitySelectorProps) {
+  const { t } = useTranslation();
   const toggle = (modality: LearningModality) => {
     onChange(
       value.includes(modality)
@@ -41,7 +43,7 @@ export function ModalitySelector({ value, onChange }: ModalitySelectorProps) {
   return (
     <fieldset>
       <legend className="mb-2 text-sm font-medium text-[var(--foreground)]">
-        喜欢的学习方式
+        {t("Preferred Learning Modes")}
       </legend>
       <div className="divide-y divide-[var(--border)] border-y border-[var(--border)] sm:grid sm:grid-cols-2 sm:divide-y-0">
         {MODALITIES.map(({ value: modality, label, description, icon: Icon }) => (
@@ -58,10 +60,10 @@ export function ModalitySelector({ value, onChange }: ModalitySelectorProps) {
             <Icon aria-hidden="true" className="size-4 shrink-0 text-[var(--primary)]" />
             <span className="min-w-0">
               <span className="block text-sm font-medium text-[var(--foreground)]">
-                {label}
+                {t(label)}
               </span>
               <span className="block text-xs text-[var(--muted-foreground)]">
-                {description}
+                {t(description)}
               </span>
             </span>
           </label>

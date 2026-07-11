@@ -2,6 +2,7 @@
 
 import { Save } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ModalitySelector } from "@/components/education/ModalitySelector";
 import { StageSegmentedControl } from "@/components/education/StageSegmentedControl";
@@ -39,6 +40,7 @@ export function StudentProfileForm({
   initialProfile,
   onSaved,
 }: StudentProfileFormProps) {
+  const { t } = useTranslation();
   const initialStage: EducationStage =
     initialProfile?.stage ?? catalog.textbooks[0]?.stage ?? "primary_lower";
   const initialTextbooks = textbooksForStage(catalog, initialStage);
@@ -73,9 +75,10 @@ export function StudentProfileForm({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextErrors: Record<string, string> = {};
-    if (!displayName.trim()) nextErrors.displayName = "请输入学生称呼";
-    if (!textbookId) nextErrors.textbook = "当前学段没有可选教材";
-    if (modalities.length === 0) nextErrors.modalities = "请至少选择一种学习方式";
+    if (!displayName.trim()) nextErrors.displayName = t("Student name is required");
+    if (!textbookId) nextErrors.textbook = t("No textbook is available for this stage");
+    if (modalities.length === 0)
+      nextErrors.modalities = t("Choose at least one learning mode");
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -94,7 +97,7 @@ export function StudentProfileForm({
       });
       onSaved(saved);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "保存失败，请稍后重试");
+      setError(reason instanceof Error ? reason.message : t("Failed to save Student Profile"));
     } finally {
       setSaving(false);
     }
@@ -104,7 +107,7 @@ export function StudentProfileForm({
     <form onSubmit={submit} className="w-full min-w-0 space-y-6" noValidate>
       <div>
         <label htmlFor="education-display-name" className="mb-2 block text-sm font-medium">
-          学生称呼
+          {t("Student Name")}
         </label>
         <input
           id="education-display-name"
@@ -113,7 +116,7 @@ export function StudentProfileForm({
           maxLength={30}
           aria-describedby={fieldErrors.displayName ? "display-name-error" : undefined}
           className={fieldClass}
-          placeholder="例如：小航"
+          placeholder={t("Student Name placeholder")}
         />
         {fieldErrors.displayName && (
           <p id="display-name-error" className="mt-1.5 text-xs text-red-600">
@@ -127,7 +130,7 @@ export function StudentProfileForm({
       <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         <div className="min-w-0">
           <label htmlFor="education-grade" className="mb-2 block text-sm font-medium">
-            年级
+            {t("Grade")}
           </label>
           <select
             id="education-grade"
@@ -137,14 +140,14 @@ export function StudentProfileForm({
           >
             {grades.map((item) => (
               <option key={item} value={item}>
-                {item} 年级
+                {t("Grade option", { grade: item })}
               </option>
             ))}
           </select>
         </div>
         <div className="min-w-0">
           <label htmlFor="education-textbook" className="mb-2 block text-sm font-medium">
-            教材
+            {t("Textbook")}
           </label>
           <select
             id="education-textbook"
@@ -169,17 +172,17 @@ export function StudentProfileForm({
 
       <div>
         <label htmlFor="education-interests" className="mb-2 block text-sm font-medium">
-          兴趣方向
+          {t("Interests")}
         </label>
         <input
           id="education-interests"
           value={interests}
           onChange={(event) => setInterests(event.target.value)}
           className={fieldClass}
-          placeholder="机器人，绘画，足球"
+          placeholder={t("Interests placeholder")}
         />
         <p className="mt-1.5 text-xs text-[var(--muted-foreground)]">
-          用逗号分隔，最多保留五项
+          {t("Interests helper")}
         </p>
       </div>
 
@@ -195,7 +198,7 @@ export function StudentProfileForm({
       <div>
         <div className="mb-2 flex items-center justify-between gap-3">
           <label htmlFor="education-goal" className="text-sm font-medium">
-            学习目标
+            {t("Learning Goal")}
           </label>
           <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
             {learningGoal.length}/200
@@ -208,7 +211,7 @@ export function StudentProfileForm({
           maxLength={200}
           rows={4}
           className={`${fieldClass} resize-y`}
-          placeholder="这次最想理解什么？"
+          placeholder={t("Learning Goal placeholder")}
         />
       </div>
 
@@ -228,7 +231,7 @@ export function StudentProfileForm({
           className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-transform hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Save aria-hidden="true" className={`size-4 ${saving ? "animate-pulse" : ""}`} />
-          {saving ? "正在保存" : "保存学习画像"}
+          {saving ? t("Saving Student Profile") : t("Save Student Profile")}
         </button>
       </div>
     </form>
