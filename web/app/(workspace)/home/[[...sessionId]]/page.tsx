@@ -109,6 +109,8 @@ import {
   selectedBooksToPayload,
   type SelectedBookReference,
 } from "@/lib/book-references";
+import { consumeEducationLaunch } from "@/lib/education-launch";
+import { buildEducationComposerPreset } from "@/lib/education-launch-adapter";
 
 const NotebookRecordPicker = dynamic(
   () => import("@/components/notebook/NotebookRecordPicker"),
@@ -231,6 +233,15 @@ const CAPABILITIES: CapabilityDef[] = [
       "videogen",
     ],
     defaultTools: [],
+  },
+  {
+    value: "k12_tutor",
+    label: "K12 Tutor",
+    description: "Age-adaptive AI literacy tutor",
+    icon: GraduationCap,
+    allowedTools: ["code_execution", "imagegen", "videogen"],
+    defaultTools: [],
+    loopEngine: true,
   },
   {
     value: "deep_solve",
@@ -369,6 +380,7 @@ export default function ChatPage() {
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [dragging, setDragging] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [educationKbWarning, setEducationKbWarning] = useState(false);
   const [previewSource, setPreviewSource] = useState<FilePreviewSource | null>(
     null,
   );
@@ -544,6 +556,8 @@ export default function ChatPage() {
   // mount; ``ChatMessageList`` reads it via ``handlePrefillComposer`` so an
   // ``AskUserOptions`` chip click can drop text into the composer textarea.
   const prefillInputRef = useRef<((text: string) => void) | null>(null);
+  const educationLaunchHandledRef = useRef(false);
+  const educationLaunchToolsRef = useRef<ToolName[] | null>(null);
   const handlePrefillComposer = useCallback((text: string) => {
     prefillInputRef.current?.(text);
   }, []);
@@ -1087,9 +1101,11 @@ export default function ChatPage() {
   useEffect(() => {
     if (userEnabledTools === null) return;
     const allowed = new Set(activeCap.allowedTools);
-    const next = userEnabledTools.filter((tool) =>
-      allowed.has(tool as ToolName),
-    );
+    const launchTools = educationLaunchToolsRef.current;
+    const next =
+      launchTools ??
+      userEnabledTools.filter((tool) => allowed.has(tool as ToolName));
+    educationLaunchToolsRef.current = null;
     const current = state.enabledTools;
     const same =
       current.length === next.length &&
@@ -1130,6 +1146,47 @@ export default function ChatPage() {
     },
     [capabilityConfigs, setCapability, setKBs, setTools, userEnabledTools],
   );
+
+  useEffect(() => {
+    if (educationLaunchHandledRef.current) return;
+    educationLaunchHandledRef.current = true;
+    const intent = consumeEducationLaunch();
+    if (!intent) return;
+
+    let preset;
+    try {
+      preset = buildEducationComposerPreset(intent);
+    } catch {
+      return;
+    }
+    const tools = preset.tools.filter((tool): tool is ToolName =>
+      ALL_TOOLS.some((item) => item.name === tool),
+    );
+    educationLaunchToolsRef.current = tools;
+    setCapabilityConfigs((current) => ({
+      ...current,
+      [preset.capability]: {
+        enabledTools: tools,
+        knowledgeBase: preset.knowledgeBases[0] ?? "",
+        config: preset.config,
+      },
+    }));
+    setCapability(preset.capability);
+    setTools(tools);
+    setKBs(preset.knowledgeBases);
+    setEducationKbWarning(preset.knowledgeBases.length === 0);
+    if (preset.capability === "deep_question") {
+      setQuizConfig(preset.config as unknown as DeepQuestionFormConfig);
+    }
+    if (preset.capability === "visualize") {
+      setVisualizeConfig(preset.config as unknown as VisualizeFormConfig);
+    }
+    setCapabilityConfigConfirmed(true);
+    const frame = window.requestAnimationFrame(() => {
+      prefillInputRef.current?.(preset.draft);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [setCapability, setKBs, setTools]);
 
   const fileToAttachment = useCallback(
     (f: File): Promise<PendingAttachment> =>
@@ -1429,6 +1486,10 @@ export default function ChatPage() {
       }));
       let config: Record<string, unknown> | undefined;
 
+      if (activeCap.value === "k12_tutor") {
+        config = capabilityConfigs.k12_tutor?.config;
+      }
+
       if (isQuizMode) {
         config = buildQuizWSConfig(quizConfig);
         if (quizConfig.mode === "mimic" && quizPdf) {
@@ -1496,7 +1557,9 @@ export default function ChatPage() {
     },
     [
       attachments,
+      activeCap.value,
       bookReferencesPayload,
+      capabilityConfigs.k12_tutor?.config,
       historyReferencesPayload,
       isQuizMode,
       isResearchMode,
@@ -1918,6 +1981,14 @@ export default function ChatPage() {
               </div>
             )}
 
+            {educationKbWarning && state.knowledgeBases.length === 0 && (
+              <div
+                role="status"
+                className="mx-3 mb-2 border-y border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+              >
+                {t("Textbook knowledge base is not ready")}
+              </div>
+            )}
             <ChatComposer
               composerRef={composerRef}
               capMenuRef={capMenuRef}

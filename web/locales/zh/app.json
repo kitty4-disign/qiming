@@ -2724,5 +2724,7 @@
   "Learning Goal placeholder": "这次最想理解什么？",
   "Failed to save Student Profile": "保存失败，请稍后重试",
   "Saving Student Profile": "正在保存",
-  "Save Student Profile": "保存学习画像"
+  "Save Student Profile": "保存学习画像",
+  "K12 Tutor": "K12 学习导师",
+  "Age-adaptive AI literacy tutor": "根据学段调整讲解方式的 AI 通识导师"
 }
