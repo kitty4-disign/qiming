@@ -71,6 +71,15 @@ class VisualizeRequestConfig(BaseModel):
     style_hint: str = Field(default="", max_length=500)
 
 
+class K12TutorRequestConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    course_id: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    mastery_path_id: str = Field(
+        min_length=1, max_length=180, pattern=r"^[A-Za-z0-9_-]+$"
+    )
+
+
 def _clean_public_config(raw_config: dict[str, Any] | None) -> dict[str, Any]:
     if raw_config is None:
         return {}
@@ -121,6 +130,12 @@ def validate_visualize_request_config(
     return _validate_model(VisualizeRequestConfig, raw_config, label="visualize")
 
 
+def validate_k12_tutor_request_config(
+    raw_config: dict[str, Any] | None,
+) -> K12TutorRequestConfig:
+    return _validate_model(K12TutorRequestConfig, raw_config, label="K12 tutor")
+
+
 def build_request_schema(model_type: type[BaseModel]) -> dict[str, Any]:
     return model_type.model_json_schema(mode="validation")
 
@@ -131,6 +146,7 @@ CAPABILITY_CONFIG_VALIDATORS: dict[str, Callable[[dict[str, Any] | None], Any]] 
     "deep_question": validate_deep_question_request_config,
     "deep_research": validate_research_request_config,
     "math_animator": validate_math_animator_request_config,
+    "k12_tutor": validate_k12_tutor_request_config,
     "visualize": validate_visualize_request_config,
 }
 
@@ -140,6 +156,7 @@ CAPABILITY_REQUEST_SCHEMAS: dict[str, dict[str, Any]] = {
     "deep_question": build_request_schema(DeepQuestionRequestConfig),
     "deep_research": build_request_schema(DeepResearchRequestConfig),
     "math_animator": build_request_schema(MathAnimatorRequestConfig),
+    "k12_tutor": build_request_schema(K12TutorRequestConfig),
     "visualize": build_request_schema(VisualizeRequestConfig),
 }
 
@@ -166,6 +183,7 @@ __all__ = [
     "ChatRequestConfig",
     "DeepQuestionRequestConfig",
     "DeepSolveRequestConfig",
+    "K12TutorRequestConfig",
     "VisualizeRequestConfig",
     "build_request_schema",
     "get_capability_request_schema",
@@ -173,5 +191,6 @@ __all__ = [
     "validate_chat_request_config",
     "validate_deep_question_request_config",
     "validate_deep_solve_request_config",
+    "validate_k12_tutor_request_config",
     "validate_visualize_request_config",
 ]

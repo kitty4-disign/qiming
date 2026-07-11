@@ -2,6 +2,7 @@
 
 BUILTIN_CAPABILITY_CLASSES: dict[str, str] = {
     "chat": "deeptutor.agents.chat.capability:ChatCapability",
+    "k12_tutor": "deeptutor.agents.k12_tutor.capability:K12TutorCapability",
     "deep_solve": "deeptutor.capabilities.solve.capability:DeepSolveCapability",
     "deep_question": "deeptutor.agents.question.capability:DeepQuestionCapability",
     "deep_research": "deeptutor.agents.research.capability:DeepResearchCapability",
