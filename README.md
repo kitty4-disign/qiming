@@ -179,6 +179,14 @@ DeepTutor is an agent-native learning workspace that connects tutoring, problem 
 - **Extensible tools and skills** — built-in tools, MCP servers, image / video / voice generation models, and installable community skills from EduHub.
 - **Inspectable memory** — L1 traces, L2 surface summaries, and L3 synthesis make personalization visible and editable, with a Memory Graph that traces every claim back to its evidence.
 
+### 🎓 K12 AI Classroom
+
+DeepTutor ships a K12 AI literacy workspace at [`/education`](http://127.0.0.1:3782/education) that adapts the agent-native runtime for primary-lower, primary-upper, middle, and high-school stages. It adds a thin orchestration layer on top of existing chat, mastery, quiz, visualize, book, and code-execution capabilities — no core pipeline is rewritten. Students onboard with a stage/grade/textbook profile, then launch age-appropriate lessons, quizzes, animations, storybooks, and coding tasks from a single dashboard.
+
+- [K12 knowledge base setup](docs/k12-knowledge-base-setup.md) — create and index the four stage-specific textbook KBs.
+- [Five-minute competition demo script](docs/k12-competition-demo-script.md) — repeatable evaluator walkthrough.
+- [K12 system architecture](docs/k12-system-architecture.md) — data flow, RAG provenance, safety, and deployment options.
+
 ---
 
 ## 🚀 Get Started
