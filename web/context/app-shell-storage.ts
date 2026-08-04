@@ -60,11 +60,12 @@ export function normalizeLanguage(
 }
 
 export function readStoredLanguage(): AppLanguage {
-  if (typeof window === "undefined") return "en";
+  if (typeof window === "undefined") return "zh";
   try {
-    return normalizeLanguage(window.localStorage.getItem(LANGUAGE_STORAGE_KEY));
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return stored ? normalizeLanguage(stored) : "zh";
   } catch {
-    return "en";
+    return "zh";
   }
 }
 

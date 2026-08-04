@@ -3,6 +3,10 @@
  * Handles light/dark theme with localStorage fallback and system preference detection
  */
 
+// The app ships a single warm "Claude" family with two modes: Light (:root)
+// and Dark. "glass"/"snow" are retired ids kept in the union only so stored
+// preferences from older builds still type-check; they are migrated to
+// light/dark on read (see getStoredTheme).
 export type Theme = "light" | "dark" | "glass" | "snow";
 
 export const THEME_STORAGE_KEY = "deeptutor-theme";
@@ -35,12 +39,10 @@ export function getStoredTheme(): Theme | null {
 
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (
-      stored === "light" ||
-      stored === "dark" ||
-      stored === "glass" ||
-      stored === "snow"
-    ) {
+    // Migrate retired ids into the warm family.
+    if (stored === "snow") return "light";
+    if (stored === "glass") return "dark";
+    if (stored === "light" || stored === "dark") {
       return stored;
     }
   } catch (e) {
@@ -67,15 +69,15 @@ export function saveThemeToStorage(theme: Theme): boolean {
 
 /**
  * Get system preference for theme.
- * Light systems get "snow" (the pure-white Default theme); dark systems
- * get "dark". Must stay in sync with the inline ThemeScript fallback.
+ * Light systems get "light" (the warm Claude default); dark systems get
+ * "dark". Must stay in sync with the inline ThemeScript fallback.
  */
 export function getSystemTheme(): Theme {
-  if (typeof window === "undefined") return "snow";
+  if (typeof window === "undefined") return "light";
 
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
-    : "snow";
+    : "light";
 }
 
 /**
@@ -88,18 +90,16 @@ export function applyThemeToDocument(theme: Theme): void {
 
   html.classList.remove("dark", "theme-glass", "theme-snow");
 
-  if (theme === "dark") {
+  // "glass"/"snow" are retired; treat any dark-family id as Dark, everything
+  // else as the bare :root Light palette.
+  if (theme === "dark" || theme === "glass") {
     html.classList.add("dark");
-  } else if (theme === "glass") {
-    html.classList.add("dark", "theme-glass");
-  } else if (theme === "snow") {
-    html.classList.add("theme-snow");
   }
 }
 
 /**
  * Initialize theme on app startup
- * Priority: localStorage > system preference (snow on light systems, dark on dark)
+ * Priority: localStorage > system preference (light on light systems, dark on dark)
  */
 export function initializeTheme(): Theme {
   // Check localStorage first

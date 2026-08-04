@@ -1,54 +1,94 @@
 version: 1
 textbooks:
-  - id: k12-ai-primary-lower
-    title_zh: AI启蒙小课堂
-    title_en: AI First Steps
-    stage: primary_lower
-    knowledge_base: k12-ai-primary-lower
-    default_course_id: smart-friends
-    courses:
-      - id: smart-friends
-        title_zh: 聪明机器朋友
-        title_en: Smart Machine Friends
-        summary_zh: 用生活故事认识指令、模式和人工智能安全。
-        knowledge_points: [指令与顺序, 寻找相同模式, 机器如何学习, 安全使用人工智能]
-        recommended_actions: [dialogue, storybook, quiz]
-  - id: k12-ai-primary-upper
-    title_zh: AI探索与创造
-    title_en: Explore and Create with AI
-    stage: primary_upper
-    knowledge_base: k12-ai-primary-upper
-    default_course_id: image-recognition
-    courses:
-      - id: image-recognition
-        title_zh: 图像识别大冒险
-        title_en: Image Recognition Adventure
-        summary_zh: 从像素和特征出发，理解机器如何学习区分图片。
-        knowledge_points: [像素与数字图像, 图像特征, 训练集与测试集, 识别偏差与安全]
-        recommended_actions: [dialogue, animation, storybook, quiz]
-  - id: k12-ai-middle
-    title_zh: 机器学习实验室
-    title_en: Machine Learning Lab
-    stage: middle
-    knowledge_base: k12-ai-middle
-    default_course_id: classification-lab
-    courses:
-      - id: classification-lab
-        title_zh: 数据分类实验
-        title_en: Data Classification Lab
-        summary_zh: 用数据、特征和评价指标完成一次分类实验。
-        knowledge_points: [数据与标签, 特征选择, 训练与测试, 准确率与混淆矩阵, 数据伦理]
-        recommended_actions: [dialogue, animation, coding, quiz]
-  - id: k12-ai-high
-    title_zh: Python人工智能项目
-    title_en: Python AI Projects
-    stage: high
-    knowledge_base: k12-ai-high
-    default_course_id: python-image-classifier
-    courses:
-      - id: python-image-classifier
-        title_zh: 从零实现图像分类器
-        title_en: Build an Image Classifier
-        summary_zh: 使用Python完成数据表示、特征计算、分类和效果评价。
-        knowledge_points: [数组表示图像, 特征提取, 最近质心分类, 训练测试划分, 模型评价与局限]
-        recommended_actions: [dialogue, coding, animation, quiz]
+- id: k12-ai-primary-lower
+  title_zh: AI启蒙小课堂
+  title_en: AI First Steps
+  stage: primary_lower
+  knowledge_base: k12-ai-primary-lower
+  default_course_id: smart-friends
+  courses:
+  - id: smart-friends
+    title_zh: 聪明机器朋友
+    title_en: Smart Machine Friends
+    summary_zh: 用生活故事认识指令、模式和人工智能安全。
+    summary_en: Meet instructions, patterns, and AI safety through everyday stories.
+    knowledge_points:
+    - 指令与顺序
+    - 寻找相同模式
+    - 机器如何学习
+    - 安全使用人工智能
+    recommended_actions:
+    - dialogue
+    - storybook
+    - quiz
+- id: k12-ai-primary-upper
+  title_zh: AI探索与创造
+  title_en: Explore and Create with AI
+  stage: primary_upper
+  knowledge_base: k12-ai-primary-upper
+  default_course_id: image-recognition
+  courses:
+  - id: image-recognition
+    title_zh: 图像识别大冒险
+    title_en: Image Recognition Adventure
+    summary_zh: 从像素和特征出发，理解机器如何学习区分图片。
+    summary_en: Start from pixels and features to understand how machines learn to
+      tell images apart.
+    knowledge_points:
+    - 像素与数字图像
+    - 图像特征
+    - 训练集与测试集
+    - 识别偏差与安全
+    recommended_actions:
+    - dialogue
+    - animation
+    - storybook
+    - quiz
+- id: k12-ai-middle
+  title_zh: 机器学习实验室
+  title_en: Machine Learning Lab
+  stage: middle
+  knowledge_base: k12-ai-middle
+  default_course_id: classification-lab
+  courses:
+  - id: classification-lab
+    title_zh: 数据分类实验
+    title_en: Data Classification Lab
+    summary_zh: 用数据、特征和评价指标完成一次分类实验。
+    summary_en: Complete one classification experiment with data, features, and evaluation
+      metrics.
+    knowledge_points:
+    - 数据与标签
+    - 特征选择
+    - 训练与测试
+    - 准确率与混淆矩阵
+    - 数据伦理
+    recommended_actions:
+    - dialogue
+    - animation
+    - coding
+    - quiz
+- id: k12-ai-high
+  title_zh: Python人工智能项目
+  title_en: Python AI Projects
+  stage: high
+  knowledge_base: k12-ai-high
+  default_course_id: python-image-classifier
+  courses:
+  - id: python-image-classifier
+    title_zh: 从零实现图像分类器
+    title_en: Build an Image Classifier
+    summary_zh: 使用Python完成数据表示、特征计算、分类和效果评价。
+    summary_en: Use Python for image representation, features, classification, and
+      evaluation.
+    knowledge_points:
+    - 数组表示图像
+    - 特征提取
+    - 最近质心分类
+    - 训练测试划分
+    - 模型评价与局限
+    recommended_actions:
+    - dialogue
+    - coding
+    - animation
+    - quiz

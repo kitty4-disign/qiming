@@ -468,7 +468,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   const [status, setStatus] = useState<SystemStatus | null>(null);
-  const [theme, setTheme] = useState<UiSettings["theme"]>("snow");
+  const [theme, setTheme] = useState<UiSettings["theme"]>("light");
   const [language, setLanguage] = useState<UiSettings["language"]>("en");
   const [catalog, setCatalog] = useState<Catalog>(defaultCatalog());
   const [draft, setDraft] = useState<Catalog>(defaultCatalog());
@@ -551,7 +551,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       } else {
         setCatalogEditable(false);
       }
-      setTheme(payload.ui.theme);
+      // Migrate retired theme ids from older accounts into the warm family.
+      const loadedTheme = payload.ui.theme;
+      setTheme(
+        loadedTheme === "snow"
+          ? "light"
+          : loadedTheme === "glass"
+            ? "dark"
+            : loadedTheme,
+      );
       setLanguage(payload.ui.language);
       if (payload.providers) setProviders(payload.providers);
       settingsLoaded = true;

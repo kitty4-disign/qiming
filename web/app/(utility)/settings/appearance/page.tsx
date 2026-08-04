@@ -59,16 +59,13 @@ export default function AppearanceSettingsPage() {
         )}
       >
         <div className="py-4">
-          {/* Order is intentional: Default (pure-white neutral, the default
-              selection; theme id "snow" kept for stored preferences) →
-              warm-light Cream → warm-dark Dark → cool-dark Glass. */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {/* One warm family, two modes: Light (warm ivory, the default) and
+              Dark (warm charcoal). */}
+          <div className="grid grid-cols-2 gap-3 sm:max-w-[360px]">
             {(
               [
-                { id: "snow", label: t("Default") },
-                { id: "light", label: t("Cream") },
+                { id: "light", label: t("Light") },
                 { id: "dark", label: t("Dark") },
-                { id: "glass", label: t("Glass") },
               ] as const
             ).map(({ id, label }) => (
               <ThemePreviewCard
@@ -82,7 +79,7 @@ export default function AppearanceSettingsPage() {
           </div>
           <p className="mt-4 text-[11.5px] leading-relaxed text-[var(--muted-foreground)]/80">
             {t(
-              "Default is a clean pure-white theme with a blue accent. Cream is warm and paper-like with a terracotta accent. Dark keeps Cream's warmth on near-black. Glass adds translucent purple panels on a deep gradient.",
+              "Light is a warm, paper-like theme with a terracotta accent. Dark keeps the same warmth on a soft charcoal canvas.",
             )}
           </p>
         </div>

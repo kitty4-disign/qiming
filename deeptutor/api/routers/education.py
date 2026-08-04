@@ -5,6 +5,7 @@ from deeptutor.education.catalog import (
     resolve_curriculum,
     resolve_visible_knowledge_bases,
 )
+from deeptutor.education.mastery_seed import ensure_course_mastery_path
 from deeptutor.education.models import StudentProfile
 from deeptutor.education.path_ids import build_mastery_path_id
 from deeptutor.education.profile_service import EducationProfileService
@@ -51,11 +52,22 @@ async def get_launch_context(course_id: str):
     knowledge_bases, warnings = resolve_visible_knowledge_bases(
         profile, visible_names=visible_names
     )
+    mastery_path_id = build_mastery_path_id(textbook.id, course.id)
+    progress = ensure_course_mastery_path(
+        course,
+        textbook_id=textbook.id,
+        path_id=mastery_path_id,
+    )
     return {
         "profile": profile.model_dump(mode="json"),
         "textbook": textbook.model_dump(mode="json"),
         "course": course.model_dump(mode="json"),
-        "mastery_path_id": build_mastery_path_id(textbook.id, course.id),
+        "mastery_path_id": mastery_path_id,
         "knowledge_bases": knowledge_bases,
         "warnings": warnings,
+        "mastery_seeded": bool(progress.modules),
+        "mastery_counts": {
+            "total": sum(len(module.knowledge_points) for module in progress.modules),
+            "modules": len(progress.modules),
+        },
     }

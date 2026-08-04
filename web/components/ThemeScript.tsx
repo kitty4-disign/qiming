@@ -11,27 +11,27 @@ export default function ThemeScript() {
   const themeScript = `
     (function() {
       try {
-        const stored = localStorage.getItem('deeptutor-theme');
+        var stored = localStorage.getItem('deeptutor-theme');
+
+        // Retired themes migrate into the warm family: the old pure-white
+        // "snow" default → Light (:root), the purple "glass" → Dark.
+        if (stored === 'snow') { stored = 'light'; localStorage.setItem('deeptutor-theme', 'light'); }
+        if (stored === 'glass') { stored = 'dark'; localStorage.setItem('deeptutor-theme', 'dark'); }
 
         document.documentElement.classList.remove('dark', 'theme-glass', 'theme-snow');
 
         if (stored === 'dark') {
           document.documentElement.classList.add('dark');
-        } else if (stored === 'glass') {
-          document.documentElement.classList.add('dark', 'theme-glass');
-        } else if (stored === 'snow') {
-          document.documentElement.classList.add('theme-snow');
         } else if (stored === 'light') {
-          // already clean
+          // Light is the bare :root palette — no class needed.
         } else {
-          // No stored preference: Default (snow) for light systems,
-          // Dark for prefers-color-scheme: dark.
+          // No stored preference: warm Light for light systems, Dark for
+          // prefers-color-scheme: dark.
           if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
             document.documentElement.classList.add('dark');
             localStorage.setItem('deeptutor-theme', 'dark');
           } else {
-            document.documentElement.classList.add('theme-snow');
-            localStorage.setItem('deeptutor-theme', 'snow');
+            localStorage.setItem('deeptutor-theme', 'light');
           }
         }
       } catch (e) {

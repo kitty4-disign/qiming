@@ -21,10 +21,11 @@ const fontSerif = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "DeepTutor",
-  description: "Agent-native intelligent learning companion",
+  title: "启明",
+  description: "启明 · Agent 原生的智能学习助手",
   icons: {
     icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
     ],
@@ -39,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="zh"
       suppressHydrationWarning
       data-scroll-behavior="smooth"
       className={`${fontSans.variable} ${fontSerif.variable}`}

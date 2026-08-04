@@ -27,6 +27,7 @@ export interface EducationCourse {
   title_zh: string;
   title_en: string;
   summary_zh: string;
+  summary_en?: string;
   knowledge_points: string[];
   recommended_actions: LearningModality[];
 }
@@ -53,4 +54,9 @@ export interface EducationLaunchContext {
   mastery_path_id: string;
   knowledge_bases: string[];
   warnings: string[];
+  mastery_seeded?: boolean;
+  mastery_counts?: {
+    total: number;
+    modules: number;
+  };
 }

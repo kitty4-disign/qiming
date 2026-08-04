@@ -39,6 +39,8 @@ import BookProgressTimeline from "./components/BookProgressTimeline";
 import BookSidebar from "./components/BookSidebar";
 import PageReader from "./components/PageReader";
 import SpineEditor from "./components/SpineEditor";
+import { consumeEducationLaunch } from "@/lib/education-launch";
+import { buildEducationStorybookPreset } from "@/lib/education-launch-adapter";
 
 type View = "list" | "creator" | "spine" | "reader";
 
@@ -78,6 +80,11 @@ function BookPageInner() {
 
   // Creator-stage state
   const [creating, setCreating] = useState(false);
+  const [educationStorybook, setEducationStorybook] = useState<{
+    intent: string;
+    knowledgeBases: string[];
+  } | null>(null);
+  const educationLaunchHandledRef = useRef(false);
   const [confirmingProposal, setConfirmingProposal] = useState(false);
   const [pendingProposal, setPendingProposal] = useState<BookProposal | null>(
     null,
@@ -220,6 +227,24 @@ function BookPageInner() {
   // Allow deep-linking via /book?book=<id> (e.g. from the global sidebar).
   const searchParams = useSearchParams();
   const requestedBookId = searchParams?.get("book") || null;
+
+  useEffect(() => {
+    if (educationLaunchHandledRef.current) return;
+    educationLaunchHandledRef.current = true;
+    const launch = consumeEducationLaunch();
+    if (!launch || launch.action !== "storybook") return;
+    try {
+      const preset = buildEducationStorybookPreset(launch);
+      setEducationStorybook({
+        intent: preset.intent,
+        knowledgeBases: preset.knowledgeBases,
+      });
+      setView("creator");
+    } catch {
+      // Ignore malformed education launches and keep the book workspace usable.
+    }
+  }, []);
+
   useEffect(() => {
     if (!requestedBookId) return;
     if (requestedBookId === selectedBookId) return;
@@ -517,6 +542,8 @@ function BookPageInner() {
                 proposal={pendingProposal}
                 onConfirmProposal={handleConfirmProposal}
                 confirmLoading={confirmingProposal}
+                initialIntent={educationStorybook?.intent || ""}
+                initialKnowledgeBases={educationStorybook?.knowledgeBases || []}
               />
             </div>
           )}

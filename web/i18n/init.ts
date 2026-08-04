@@ -6,7 +6,7 @@ import enApp from "@/locales/en/app.json";
 export type AppLanguage = "en" | "zh";
 
 export function normalizeLanguage(lang: unknown): AppLanguage {
-  if (!lang) return "en";
+  if (!lang) return "zh";
   const s = String(lang).toLowerCase();
   if (s === "zh" || s === "cn" || s === "chinese") return "zh";
   return "en";

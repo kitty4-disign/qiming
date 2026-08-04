@@ -12,6 +12,9 @@ interface CourseOverviewProps {
 export function CourseOverview({ course }: CourseOverviewProps) {
   const { t, i18n } = useTranslation();
   const isChinese = i18n.language.startsWith("zh");
+  const summary = isChinese
+    ? course.summary_zh
+    : course.summary_en || course.summary_zh;
 
   return (
     <section className="border-t border-[var(--border)] py-6" aria-labelledby="course-title">
@@ -24,7 +27,7 @@ export function CourseOverview({ course }: CourseOverviewProps) {
             {isChinese ? course.title_zh : course.title_en}
           </h2>
           <p className="mt-2 max-w-[65ch] text-sm leading-6 text-[var(--muted-foreground)]">
-            {course.summary_zh}
+            {summary}
           </p>
         </div>
         <div>

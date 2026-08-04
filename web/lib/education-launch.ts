@@ -21,6 +21,8 @@ export interface EducationLaunchIntent {
   topic: string;
   masteryPathId: string;
   knowledgeBases: string[];
+  summary?: string;
+  knowledgePoints?: string[];
   createdAt: number;
 }
 
@@ -47,6 +49,10 @@ function isLaunchIntent(value: unknown): value is EducationLaunchIntent {
     typeof item.masteryPathId === "string" &&
     Array.isArray(item.knowledgeBases) &&
     item.knowledgeBases.every((name) => typeof name === "string") &&
+    (item.summary === undefined || typeof item.summary === "string") &&
+    (item.knowledgePoints === undefined ||
+      (Array.isArray(item.knowledgePoints) &&
+        item.knowledgePoints.every((point) => typeof point === "string"))) &&
     typeof item.createdAt === "number" &&
     Number.isFinite(item.createdAt)
   );
@@ -68,6 +74,22 @@ export function consumeEducationLaunch(
   const raw = storage.getItem(STORAGE_KEY);
   if (raw === null) return null;
   storage.removeItem(STORAGE_KEY);
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!isLaunchIntent(value) || now - value.createdAt > MAX_AGE_MS) return null;
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+export function peekEducationLaunch(
+  storage: KeyValueStorage | null = browserStorage(),
+  now = Date.now(),
+): EducationLaunchIntent | null {
+  if (!storage) return null;
+  const raw = storage.getItem(STORAGE_KEY);
+  if (raw === null) return null;
   try {
     const value: unknown = JSON.parse(raw);
     if (!isLaunchIntent(value) || now - value.createdAt > MAX_AGE_MS) return null;

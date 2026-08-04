@@ -1921,14 +1921,12 @@ export default function ChatPage() {
             ) : !hasMessages ? (
               <div className="flex flex-1 min-h-0 flex-col items-center justify-end pb-14 animate-fade-in">
                 <div className="flex items-center justify-center gap-4">
-                  <img
-                    src="/logo_black.png"
-                    alt="DeepTutor"
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 select-none"
-                    draggable={false}
-                  />
+                  <span
+                    aria-hidden
+                    className="flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-[11px] bg-[var(--primary)] font-serif text-[22px] font-semibold leading-none text-[var(--primary-foreground)]"
+                  >
+                    启
+                  </span>
                   <h1 className="font-serif text-[40px] font-medium leading-[1.1] tracking-[-0.015em] text-[var(--foreground)]">
                     {t(welcomeGreeting)}
                   </h1>

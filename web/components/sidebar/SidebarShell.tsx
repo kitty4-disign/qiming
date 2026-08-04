@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -39,6 +38,23 @@ interface NavEntry {
   tooltipKey?: string;
   /** Model capability this feature needs; locked when the user lacks it. */
   requires?: Capability;
+}
+
+/**
+ * 启明 brand mark — a small rounded tile carrying the first glyph of the
+ * name in the serif face, tinted with the terracotta primary. Pure CSS so it
+ * tracks the active theme and stays crisp at any pixel ratio (replaces the
+ * old raster logo.png/banner.png).
+ */
+function BrandMark({ className = "" }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] bg-[var(--primary)] font-serif text-[13px] font-semibold leading-none text-[var(--primary-foreground)] ${className}`}
+    >
+      启
+    </span>
+  );
 }
 
 const PRIMARY_NAV: NavEntry[] = [
@@ -201,16 +217,10 @@ export function SidebarShell({
         <div className="relative mb-2 flex h-9 w-9 items-center justify-center">
           <Link
             href="/"
-            aria-label="DeepTutor"
+            aria-label="启明"
             className="flex items-center justify-center transition-opacity duration-150 group-hover/sb:opacity-0"
           >
-            <Image
-              src="/logo.png"
-              alt="DeepTutor"
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] rounded-md"
-            />
+            <BrandMark />
           </Link>
           <button
             onClick={() => setCollapsed(false)}
@@ -332,22 +342,15 @@ export function SidebarShell({
     <aside className="flex w-[220px] h-screen shrink-0 flex-col bg-[var(--secondary)] transition-all duration-200">
       {/* Header: logo + collapse toggle */}
       <div className="flex h-14 items-center justify-between px-4">
-        <Link href="/" className="group flex items-center gap-1.5">
-          <Image
-            src="/logo.png"
-            alt="DeepTutor"
-            width={22}
-            height={22}
-            className="h-[22px] w-[22px] transition-transform duration-200 group-hover:scale-105"
-          />
-          <Image
-            src="/banner.png"
-            alt="DeepTutor"
-            width={897}
-            height={236}
-            priority
-            className="h-[22px] w-auto transition-transform duration-200 group-hover:scale-105"
-          />
+        <Link
+          href="/"
+          aria-label="启明"
+          className="group flex items-center gap-2"
+        >
+          <BrandMark className="transition-transform duration-200 group-hover:scale-105" />
+          <span className="font-serif text-[17px] font-semibold leading-none tracking-tight text-[var(--foreground)] transition-transform duration-200 group-hover:scale-105">
+            启明
+          </span>
         </Link>
         <button
           onClick={() => setCollapsed(true)}

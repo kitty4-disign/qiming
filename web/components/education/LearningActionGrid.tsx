@@ -9,7 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { getLaunchContext } from "@/lib/education-api";
@@ -17,7 +17,11 @@ import {
   saveEducationLaunch,
   type EducationAction,
 } from "@/lib/education-launch";
-import type { EducationCourse, EducationLaunchContext } from "@/lib/education-types";
+import type {
+  EducationCourse,
+  EducationLaunchContext,
+  LearningModality,
+} from "@/lib/education-types";
 
 interface LearningActionGridProps {
   course: EducationCourse;
@@ -26,6 +30,7 @@ interface LearningActionGridProps {
 
 const ACTIONS: Array<{
   action: EducationAction;
+  modality: LearningModality;
   label: string;
   description: string;
   route: "/home" | "/book";
@@ -33,6 +38,7 @@ const ACTIONS: Array<{
 }> = [
   {
     action: "lesson",
+    modality: "dialogue",
     label: "Start Lesson",
     description: "Start Lesson description",
     route: "/home",
@@ -40,6 +46,7 @@ const ACTIONS: Array<{
   },
   {
     action: "quiz",
+    modality: "quiz",
     label: "Fun Quiz",
     description: "Fun Quiz description",
     route: "/home",
@@ -47,6 +54,7 @@ const ACTIONS: Array<{
   },
   {
     action: "animation",
+    modality: "animation",
     label: "Animation Explanation",
     description: "Animation Explanation description",
     route: "/home",
@@ -54,6 +62,7 @@ const ACTIONS: Array<{
   },
   {
     action: "storybook",
+    modality: "storybook",
     label: "Interactive Storybook",
     description: "Interactive Storybook description",
     route: "/book",
@@ -61,6 +70,7 @@ const ACTIONS: Array<{
   },
   {
     action: "coding",
+    modality: "coding",
     label: "Coding Practice",
     description: "Coding Practice description",
     route: "/home",
@@ -73,7 +83,17 @@ export function LearningActionGrid({ course, launchContext }: LearningActionGrid
   const { t, i18n } = useTranslation();
   const [pending, setPending] = useState<EducationAction | null>(null);
   const [error, setError] = useState("");
-  const topic = i18n.language.startsWith("zh") ? course.title_zh : course.title_en;
+  const isChinese = i18n.language.startsWith("zh");
+  const topic = isChinese ? course.title_zh : course.title_en;
+  const summary = isChinese
+    ? course.summary_zh
+    : course.summary_en || course.summary_zh;
+
+  const visibleActions = useMemo(() => {
+    const recommended = new Set(course.recommended_actions);
+    const filtered = ACTIONS.filter((action) => recommended.has(action.modality));
+    return filtered.length > 0 ? filtered : ACTIONS.filter((action) => action.action === "lesson");
+  }, [course.recommended_actions]);
 
   const launch = useCallback(
     async (action: (typeof ACTIONS)[number]) => {
@@ -88,19 +108,17 @@ export function LearningActionGrid({ course, launchContext }: LearningActionGrid
           topic,
           masteryPathId: context.mastery_path_id,
           knowledgeBases: context.knowledge_bases,
+          summary,
+          knowledgePoints: course.knowledge_points,
           createdAt: Date.now(),
         });
-        if (action.action === "storybook" && navigator.clipboard) {
-          const prompt = `请为“${topic}”生成适合当前学段的互动绘本，包含知识讲解、一个互动问题和安全提示。`;
-          await navigator.clipboard.writeText(prompt).catch(() => undefined);
-        }
         router.push(action.route);
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : t("Launch failed"));
         setPending(null);
       }
     },
-    [course.id, launchContext, router, t, topic],
+    [course.id, course.knowledge_points, launchContext, router, summary, t, topic],
   );
 
   return (
@@ -109,7 +127,7 @@ export function LearningActionGrid({ course, launchContext }: LearningActionGrid
         {t("Choose a learning activity")}
       </h2>
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {ACTIONS.map((action) => (
+        {visibleActions.map((action) => (
           <article
             key={action.action}
             className="flex min-w-0 items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3"

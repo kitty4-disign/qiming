@@ -6,8 +6,11 @@ import deeptutor.agents.k12_tutor.capability as k12_module
 from deeptutor.agents.k12_tutor.capability import K12TutorCapability
 from deeptutor.core.context import UnifiedContext
 from deeptutor.core.stream_bus import StreamBus
+from deeptutor.education.mastery_seed import ensure_course_mastery_path
 from deeptutor.education.models import EducationStage, StudentProfile
 from deeptutor.education.profile_service import EducationProfileService
+from deeptutor.learning.service import LearningService
+from deeptutor.learning.storage import LearningStore
 
 
 @pytest.fixture
@@ -24,8 +27,19 @@ def profile_service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Educatio
             learning_goal="理解图像识别",
         )
     )
+    learning = LearningService(LearningStore(root=tmp_path / "learning"))
+
+    def _seed(course, textbook_id=None, path_id=None, service=None):
+        return ensure_course_mastery_path(
+            course,
+            textbook_id=textbook_id,
+            path_id=path_id,
+            service=learning,
+        )
+
     monkeypatch.setattr(k12_module, "_profile_service", lambda: service)
     monkeypatch.setattr(k12_module, "list_visible_knowledge_bases", lambda: [])
+    monkeypatch.setattr(k12_module, "ensure_course_mastery_path", _seed)
     return service
 
 

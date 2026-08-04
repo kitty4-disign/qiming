@@ -226,8 +226,8 @@ export function SubagentSettingsEditor({ kind }: { kind: string }) {
       <SettingsPageHeader
         title={displayName}
         description={tr({
-          zh: `DeepTutor 通过 consult_subagent 调用本机 ${displayName} 时使用的模型、推理强度与运行参数。设置后即覆盖 CLI 的默认值；留空表示沿用 CLI 默认。`,
-          en: `Model, reasoning effort, and run parameters DeepTutor drives the local ${displayName} with when consulting it. These override the CLI defaults; leave blank to keep the CLI's own default.`,
+          zh: `启明 通过 consult_subagent 调用本机 ${displayName} 时使用的模型、推理强度与运行参数。设置后即覆盖 CLI 的默认值；留空表示沿用 CLI 默认。`,
+          en: `Model, reasoning effort, and run parameters 启明 drives the local ${displayName} with when consulting it. These override the CLI defaults; leave blank to keep the CLI's own default.`,
         })}
       />
 
@@ -318,8 +318,8 @@ export function SubagentSettingsEditor({ kind }: { kind: string }) {
           <SettingSection
             title={tr({ zh: "模型", en: "Model" })}
             description={tr({
-              zh: "DeepTutor 调用该智能体时使用的模型与推理强度。",
-              en: "The model and reasoning effort DeepTutor consults this agent with.",
+              zh: "启明 调用该智能体时使用的模型与推理强度。",
+              en: "The model and reasoning effort 启明 consults this agent with.",
             })}
           >
             <SettingRow
@@ -431,8 +431,8 @@ export function SubagentSettingsEditor({ kind }: { kind: string }) {
           <SettingSection
             title={tr({ zh: "运行参数", en: "Run parameters" })}
             description={tr({
-              zh: "DeepTutor 无人值守地驱动该智能体——默认值确保它不会卡在等待确认上。",
-              en: "DeepTutor drives the agent unattended — the defaults ensure it never stalls waiting for an approval prompt.",
+              zh: "启明 无人值守地驱动该智能体——默认值确保它不会卡在等待确认上。",
+              en: "启明 drives the agent unattended — the defaults ensure it never stalls waiting for an approval prompt.",
             })}
           >
             {!isCodex && (

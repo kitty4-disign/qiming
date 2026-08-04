@@ -8,6 +8,15 @@ export interface EducationComposerPreset {
   draft: string;
 }
 
+export interface EducationStorybookPreset {
+  kind: "storybook";
+  topic: string;
+  summary: string;
+  knowledgePoints: string[];
+  knowledgeBases: string[];
+  intent: string;
+}
+
 function k12Config(intent: EducationLaunchIntent): Record<string, unknown> {
   return {
     course_id: intent.courseId,
@@ -68,4 +77,35 @@ export function buildEducationComposerPreset(
     };
   }
   throw new Error("storybook launches through the book workspace");
+}
+
+export function buildEducationStorybookPreset(
+  intent: EducationLaunchIntent,
+): EducationStorybookPreset {
+  if (intent.action !== "storybook") {
+    throw new Error("storybook preset requires a storybook launch intent");
+  }
+  const knowledgePoints = intent.knowledgePoints ?? [];
+  const pointsText = knowledgePoints.length
+    ? knowledgePoints.map((point, index) => `${index + 1}. ${point}`).join("\n")
+    : "围绕课程核心概念展开";
+  const summary = intent.summary || intent.topic;
+  return {
+    kind: "storybook",
+    topic: intent.topic,
+    summary,
+    knowledgePoints,
+    knowledgeBases: intent.knowledgeBases,
+    intent: [
+      `请为 K12 课程“${intent.topic}”生成一本适合当前学段的互动绘本。`,
+      `课程概要：${summary}`,
+      "绘本需要包含：",
+      "- 生活化故事主线",
+      "- 分步骤知识讲解",
+      "- 至少一个互动问题",
+      "- 明确的安全与伦理提示",
+      "核心知识点：",
+      pointsText,
+    ].join("\n"),
+  };
 }

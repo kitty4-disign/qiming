@@ -66,6 +66,8 @@ export interface BookCreatorProps {
   proposal?: BookProposal | null;
   onConfirmProposal?: (edited: BookProposal) => void | Promise<void>;
   confirmLoading?: boolean;
+  initialIntent?: string;
+  initialKnowledgeBases?: string[];
 }
 
 export default function BookCreator({
@@ -74,10 +76,12 @@ export default function BookCreator({
   proposal = null,
   onConfirmProposal,
   confirmLoading = false,
+  initialIntent = "",
+  initialKnowledgeBases = [],
 }: BookCreatorProps) {
   const { t } = useTranslation();
   const { language: appLanguage } = useAppShell();
-  const [intent, setIntent] = useState("");
+  const [intent, setIntent] = useState(initialIntent);
   const [language, setLanguage] = useState(appLanguage);
   const languageTouchedRef = useRef(false);
   const [tab, setTab] = useState<SourceTab>("knowledge");
@@ -85,7 +89,21 @@ export default function BookCreator({
   // Knowledge bases (flat selection)
   const [kbs, setKbs] = useState<KnowledgeBaseSummary[]>([]);
   const [kbsLoading, setKbsLoading] = useState(false);
-  const [selectedKbs, setSelectedKbs] = useState<Set<string>>(new Set());
+  const [selectedKbs, setSelectedKbs] = useState<Set<string>>(
+    () => new Set(initialKnowledgeBases),
+  );
+
+  useEffect(() => {
+    if (initialIntent) {
+      setIntent(initialIntent);
+    }
+  }, [initialIntent]);
+
+  useEffect(() => {
+    if (initialKnowledgeBases.length > 0) {
+      setSelectedKbs(new Set(initialKnowledgeBases));
+    }
+  }, [initialKnowledgeBases]);
 
   // Notebooks → records (tree selection)
   const [notebooks, setNotebooks] = useState<NotebookSummary[]>([]);

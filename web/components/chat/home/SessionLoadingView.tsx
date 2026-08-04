@@ -47,14 +47,12 @@ export default function SessionLoadingView({
 
       {/* Logo + spinner */}
       <div className="flex items-center gap-3">
-        <img
-          src="/logo_black.png"
-          alt="DeepTutor"
-          width={32}
-          height={32}
-          className="h-8 w-8 select-none"
-          draggable={false}
-        />
+        <span
+          aria-hidden
+          className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-[9px] bg-[var(--primary)] font-serif text-[17px] font-semibold leading-none text-[var(--primary-foreground)]"
+        >
+          启
+        </span>
         <Loader2 className="h-5 w-5 animate-spin text-[var(--primary)]" />
       </div>
 

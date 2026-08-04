@@ -2,6 +2,27 @@
 
 本指南使用 DeepTutor 现有 Knowledge Center 上传和索引流程，不新增数据库、向量库或导入脚本。请以管理员身份完成初始化，并保持知识库名称与课程目录完全一致。
 
+
+## 一键初始化
+
+推荐直接用仓库脚本或 CLI 一次创建四个学段教材知识库：
+
+`ash
+# 方式一：脚本
+python scripts/init_k12_knowledge_bases.py
+
+# 方式二：CLI
+deeptutor kb init-k12
+`
+
+常用参数：
+
+- --force：即使已有索引也重建
+- --skip-index：只复制教材源文件，不调用 embedding
+- --provider llamaindex：指定检索引擎（默认 llamaindex）
+
+初始化完成后，再用下面的接口验证。
+
 ## 文件映射
 
 | 知识库名称 | 上传源文件 |

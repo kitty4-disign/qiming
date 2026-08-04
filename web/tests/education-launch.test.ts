@@ -50,3 +50,25 @@ test("launch intent expires after five minutes", () => {
   );
   assert.equal(consumeEducationLaunch(storage, 301001), null);
 });
+
+test("storybook launch keeps knowledge points and summary", () => {
+  const storage = memoryStorage();
+  saveEducationLaunch(
+    {
+      version: 1,
+      action: "storybook",
+      courseId: "image-recognition",
+      topic: "图像识别大冒险",
+      masteryPathId: "edu_path",
+      knowledgeBases: ["k12-ai-primary-upper"],
+      summary: "从像素和特征出发",
+      knowledgePoints: ["像素与数字图像", "图像特征"],
+      createdAt: 1000,
+    },
+    storage,
+  );
+  const intent = consumeEducationLaunch(storage, 2000);
+  assert.equal(intent?.action, "storybook");
+  assert.equal(intent?.summary, "从像素和特征出发");
+  assert.deepEqual(intent?.knowledgePoints, ["像素与数字图像", "图像特征"]);
+});

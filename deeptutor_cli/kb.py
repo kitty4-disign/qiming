@@ -136,6 +136,69 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=1) from exc
         console.print(f"[green]Set '{name}' as default knowledge base.[/]")
 
+    @app.command("init-k12")
+    def kb_init_k12(
+        force: bool = typer.Option(
+            False,
+            "--force",
+            "-f",
+            help="Rebuild even if a ready index already exists.",
+        ),
+        skip_index: bool = typer.Option(
+            False,
+            "--skip-index",
+            help="Only copy textbook sources; do not run embedding/indexing.",
+        ),
+        provider: str = typer.Option(
+            DEFAULT_PROVIDER,
+            "--provider",
+            help="RAG provider to bind (default: llamaindex).",
+        ),
+    ) -> None:
+        """Create or refresh the four stage-specific K12 textbook knowledge bases."""
+        from deeptutor.runtime.home import DEEPTUTOR_HOME_ENV, PACKAGE_ROOT
+        import os
+
+        os.environ.setdefault(DEEPTUTOR_HOME_ENV, str(PACKAGE_ROOT))
+        from deeptutor.education.knowledge_bootstrap import ensure_all_k12_knowledge_bases
+
+        console.print(
+            "Initializing K12 textbook knowledge bases"
+            + (" [bold](force rebuild)[/]" if force else "")
+            + (" [dim](index skipped)[/]" if skip_index else "")
+            + f" via [bold]{provider}[/]..."
+        )
+        try:
+            results = asyncio.run(
+                ensure_all_k12_knowledge_bases(
+                    force=force,
+                    process=not skip_index,
+                    rag_provider=provider,
+                )
+            )
+        except Exception as exc:
+            console.print(f"[red]K12 knowledge base setup failed: {exc}[/]")
+            raise typer.Exit(code=1) from exc
+
+        table = Table(title="K12 Knowledge Bases")
+        table.add_column("Name", style="bold")
+        table.add_column("Action")
+        table.add_column("Status")
+        table.add_column("Detail")
+        failed = 0
+        for item in results:
+            style = "green" if item.status == "ready" else "red"
+            table.add_row(item.name, item.action, f"[{style}]{item.status}[/]", item.detail)
+            if item.status != "ready":
+                failed += 1
+        console.print(table)
+        if failed:
+            console.print(
+                f"[red]{failed} knowledge base(s) failed. Check embedding settings and retry.[/]"
+            )
+            raise typer.Exit(code=1)
+        console.print("[green]All four K12 textbook knowledge bases are ready.[/]")
+
     @app.command("create")
     def kb_create(
         name: str = typer.Argument(..., help="New KB name."),

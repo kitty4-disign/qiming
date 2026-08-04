@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildEducationComposerPreset } from "../lib/education-launch-adapter";
+import {
+  buildEducationComposerPreset,
+  buildEducationStorybookPreset,
+} from "../lib/education-launch-adapter";
 import type {
   EducationAction,
   EducationLaunchIntent,
@@ -15,6 +18,8 @@ function primaryUpperIntent(action: EducationAction): EducationLaunchIntent {
     topic: "图像识别大冒险",
     masteryPathId: "edu_k12_ai_primary_upper_image_recognition",
     knowledgeBases: ["k12-ai-primary-upper"],
+    summary: "从像素和特征出发，理解机器如何学习区分图片。",
+    knowledgePoints: ["像素与数字图像", "图像特征", "训练集与测试集", "识别偏差与安全"],
     createdAt: 1000,
   };
 }
@@ -48,4 +53,12 @@ test("coding keeps K12 tutor and enables only code execution", () => {
   assert.equal(preset.capability, "k12_tutor");
   assert.deepEqual(preset.tools, ["code_execution"]);
   assert.match(preset.draft, /先给我一个可运行的代码框架/);
+});
+
+test("storybook builds book workspace intent", () => {
+  const preset = buildEducationStorybookPreset(primaryUpperIntent("storybook"));
+  assert.equal(preset.kind, "storybook");
+  assert.match(preset.intent, /互动绘本/);
+  assert.match(preset.intent, /像素与数字图像/);
+  assert.deepEqual(preset.knowledgeBases, ["k12-ai-primary-upper"]);
 });

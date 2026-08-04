@@ -22,43 +22,44 @@ type Palette = {
   glass?: boolean;
 };
 
+// Only "light" and "dark" are user-selectable now; "snow"/"glass" remain in
+// the union for backward-compat stored values and mirror their migration
+// target (snow→light, glass→dark) so a stale preference still previews sanely.
 const PALETTES: Record<Theme, Palette> = {
-  // theme id "light" applies no class → :root Cream palette (warm parchment,
-  // the default; renamed from generic "Light" to honestly signal its warmth)
+  // theme id "light" applies no class → :root warm "paper" palette (default)
   light: {
-    bg: "#fdfcf9",
-    fg: "#1c1816",
+    bg: "#faf9f5",
+    fg: "#26241f",
     card: "#ffffff",
-    primary: "#b0501e",
-    muted: "#f1ede2",
-    border: "#e6decc",
-  },
-  // theme id "snow" applies the .theme-snow class → "Default": pure-white
-  // neutral palette, grey surfaces, blue primary (Codex-style chrome)
-  snow: {
-    bg: "#ffffff",
-    fg: "#0d0d0d",
-    card: "#ffffff",
-    primary: "#2563eb",
-    muted: "#f2f2f2",
-    border: "#e5e5e5",
+    primary: "#c96442",
+    muted: "#efece3",
+    border: "#e7e3d7",
   },
   dark: {
-    bg: "#1a1918",
-    fg: "#e8e4de",
-    card: "#242220",
-    primary: "#d4734b",
-    muted: "#2a2725",
-    border: "#3a3634",
+    bg: "#262421",
+    fg: "#ece9e2",
+    card: "#302d29",
+    primary: "#d97757",
+    muted: "#302d29",
+    border: "#3d3833",
+  },
+  // Retired — mirrors its migration target so any stale preference previews
+  // as the theme it now resolves to.
+  snow: {
+    bg: "#faf9f5",
+    fg: "#26241f",
+    card: "#ffffff",
+    primary: "#c96442",
+    muted: "#efece3",
+    border: "#e7e3d7",
   },
   glass: {
-    bg: "#0e0d1a",
-    fg: "#ffffff",
-    card: "rgba(255,255,255,0.06)",
-    primary: "#a855f7",
-    muted: "rgba(255,255,255,0.06)",
-    border: "rgba(255,255,255,0.12)",
-    glass: true,
+    bg: "#262421",
+    fg: "#ece9e2",
+    card: "#302d29",
+    primary: "#d97757",
+    muted: "#302d29",
+    border: "#3d3833",
   },
 };
 

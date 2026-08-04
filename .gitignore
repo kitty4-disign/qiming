@@ -239,6 +239,9 @@ nosetests.xml
 coverage.xml
 develop/
 
+# Node test runner output (temporary)
+node-test-result.txt
+
 # ============================================
 # Jupyter Notebook
 # ============================================

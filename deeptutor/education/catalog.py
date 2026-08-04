@@ -16,6 +16,7 @@ class Course(BaseModel):
     title_zh: str
     title_en: str
     summary_zh: str
+    summary_en: str = ""
     knowledge_points: list[str] = Field(min_length=1)
     recommended_actions: list[str] = Field(min_length=1)
 

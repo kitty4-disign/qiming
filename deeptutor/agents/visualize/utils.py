@@ -106,7 +106,13 @@ def is_valid_html_document(html: str) -> bool:
     if not html:
         return False
     lowered = html.lower()
-    return "<html" in lowered or "<!doctype" in lowered or "<body" in lowered or "<div" in lowered
+    if not ("<html" in lowered or "<!doctype" in lowered or "<body" in lowered or "<div" in lowered):
+        return False
+    # Reject skeleton placeholders such as <head>...</head> or
+    # <script>...</script> that the model emitted instead of real content.
+    if re.search(r"<[^>]+>\s*\.{3,}\s*</[^>]+>", html):
+        return False
+    return True
 
 
 def build_fallback_html(*, title: str, summary: str = "", note: str = "") -> str:

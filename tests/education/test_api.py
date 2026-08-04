@@ -5,14 +5,28 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import deeptutor.api.routers.education as education_module
+from deeptutor.education.mastery_seed import ensure_course_mastery_path
 from deeptutor.education.profile_service import EducationProfileService
+from deeptutor.learning.service import LearningService
+from deeptutor.learning.storage import LearningStore
 
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     service = EducationProfileService(path=tmp_path / "education_profile.json")
+    learning = LearningService(LearningStore(root=tmp_path / "learning"))
+
+    def _seed(course, textbook_id=None, path_id=None, service=None):
+        return ensure_course_mastery_path(
+            course,
+            textbook_id=textbook_id,
+            path_id=path_id,
+            service=learning,
+        )
+
     monkeypatch.setattr(education_module, "_profile_service", lambda: service)
     monkeypatch.setattr(education_module, "list_visible_knowledge_bases", lambda: [])
+    monkeypatch.setattr(education_module, "ensure_course_mastery_path", _seed)
     app = FastAPI()
     app.include_router(education_module.router, prefix="/api/v1/education")
     return TestClient(app)
@@ -65,3 +79,6 @@ def test_launch_context_contains_stable_path_and_kb_warning(client):
     assert body["mastery_path_id"] == "edu_k12_ai_primary_upper_image_recognition"
     assert body["course"]["id"] == "image-recognition"
     assert body["knowledge_bases"] in ([], ["k12-ai-primary-upper"])
+    assert body["mastery_seeded"] is True
+    assert body["mastery_counts"]["total"] == 4
+    assert body["course"]["summary_en"]

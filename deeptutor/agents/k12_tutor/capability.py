@@ -5,6 +5,7 @@ from deeptutor.core.capability_protocol import BaseCapability, CapabilityManifes
 from deeptutor.core.context import UnifiedContext
 from deeptutor.core.stream_bus import StreamBus
 from deeptutor.education.catalog import resolve_curriculum, resolve_visible_knowledge_bases
+from deeptutor.education.mastery_seed import ensure_course_mastery_path
 from deeptutor.education.path_ids import build_mastery_path_id
 from deeptutor.education.profile_service import EducationProfileService
 from deeptutor.multi_user.knowledge_access import list_visible_knowledge_bases
@@ -42,6 +43,11 @@ class K12TutorCapability(BaseCapability):
         visible = {str(item.get("name") or "") for item in list_visible_knowledge_bases()}
         knowledge_bases, warnings = resolve_visible_knowledge_bases(
             profile, visible_names=visible
+        )
+        ensure_course_mastery_path(
+            course,
+            textbook_id=textbook.id,
+            path_id=expected_path,
         )
         context.knowledge_bases = knowledge_bases
         context.metadata["mastery_mode"] = True

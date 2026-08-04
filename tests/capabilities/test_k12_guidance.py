@@ -16,7 +16,7 @@ def make_profile(stage, grade):
 
 def test_primary_lower_guidance_requires_short_concrete_turns():
     text = render_k12_guidance(make_profile(EducationStage.PRIMARY_LOWER, 2), language="zh")
-    assert "每次最多解释一个概念" in text
+    assert "每次最多讲解一个概念" in text
     assert "避免公式" in text
     assert "机器人" in text
 
