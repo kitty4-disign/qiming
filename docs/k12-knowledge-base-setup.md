@@ -7,13 +7,13 @@
 
 推荐直接用仓库脚本或 CLI 一次创建四个学段教材知识库：
 
-`ash
+```bash
 # 方式一：脚本
 python scripts/init_k12_knowledge_bases.py
 
 # 方式二：CLI
 deeptutor kb init-k12
-`
+```
 
 常用参数：
 

@@ -126,6 +126,12 @@ cache/
 .ruff_cache
 .playwright-cli/
 
+# Playwright test artifacts
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
+
 # Log files
 *.log
 

@@ -82,6 +82,8 @@
 - 生成带标注步骤的 HTML 交互讲解，无自动播放音频。
 - 讲解内容围绕当前课程主题（图像特征 / 训练集）。
 
+> **M0 基线状态（待 M2 修复）：** 当前 `education-launch-adapter.ts` 中动画的 `style_hint` 为静态英文 `"K12 interactive explanation with labeled steps and noautoplay audio"`，未按学段（小学/初中/高中）生成差异化样式提示。M2 将改为由学段策略生成 `style_hint`。
+
 **备用**：截图 `k12-animation.png`，录屏 `animation.mp4`。
 
 **评分映射**：多模态动画讲解复用既有能力，体现「多模态教学」。
@@ -104,6 +106,8 @@
 - 提交后出现即时反馈与正确答案解析，错题进入错题本。
 - 题目围绕图像识别核心知识点（像素、特征、训练测试集）。
 
+> **M0 基线状态（待 M1 修复）：** 当前 `education-launch-adapter.ts` 将 quiz 路由到独立的 `deep_question` 能力，未接入课程的稳定 `mastery_path_id`。测验结果不会写回该课程的掌握度路径，个性化闭环在此断开。M1 将把 K12 测验映射到 `k12_tutor`（`activity_mode="quiz"`），通过 `mastery_status` → `mastery_quiz` → `ask_user` → `mastery_grade` 流程真正更新掌握度。
+
 **备用**：截图 `k12-quiz.png`，录屏 `quiz.mp4`。
 
 **评分映射**：自动测验与即时反馈，体现「形成性评价」。
@@ -122,6 +126,8 @@
 - 掌握度面板显示已掌握、学习中、新知识点的计数（复用 `fetchMasteryMap`）。
 - 使用稳定的学习路径 ID `edu_k12_ai_primary_upper_image_recognition`。
 - 推荐下一知识点（如「训练集与测试集」）。
+
+> **M0 基线状态（待 M1 修复）：** `MasterySummary.tsx` 当前仅展示「已掌握 / 学习中 / 新知识」三项计数，**未展示**演示文档声称的「下一知识点推荐」。M1 将新增 `RecommendedNextStep.tsx` 组件，调用确定性推荐器（`recommender.py`）展示具体知识点名称、推荐活动、推荐理由和证据，并通过 `LearningTimeline.tsx` 展示最近学习事件。
 
 **备用**：截图 `k12-mastery.png`，录屏 `mastery.mp4`。
 
