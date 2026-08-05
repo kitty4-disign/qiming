@@ -2728,5 +2728,15 @@
   "K12 Tutor": "K12 学习导师",
   "Age-adaptive AI literacy tutor": "根据学段调整讲解方式的 AI 通识导师",
   "Recommended for this course": "本课推荐",
-  "No recommended activities for this course": "当前课程暂无推荐活动"
+  "No recommended activities for this course": "当前课程暂无推荐活动",
+  "Next Step": "下一步",
+  "Start": "开始",
+  "lesson": "对话教学",
+  "storybook": "互动绘本",
+  "coding": "编程实践",
+  "resource": "教学资源",
+  "Started": "开始",
+  "Left": "离开",
+  "No learning activity yet": "还没有学习记录",
+  "Failed to load recommendation": "推荐加载失败"
 }

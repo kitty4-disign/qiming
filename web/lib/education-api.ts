@@ -1,7 +1,10 @@
 import { apiFetch, apiUrl } from "@/lib/api";
 import type {
+  ActivityCompletion,
   EducationCatalog,
   EducationLaunchContext,
+  EducationRecommendation,
+  LearningEvent,
   StudentProfile,
 } from "@/lib/education-types";
 
@@ -47,4 +50,46 @@ export async function getLaunchContext(
     apiUrl(`/api/v1/education/launch-context/${encodeURIComponent(courseId)}`),
   );
   return expectJson<EducationLaunchContext>(response);
+}
+
+export interface EducationDashboard {
+  profile: StudentProfile;
+  course: EducationLaunchContext["course"];
+  mastery_path_id: string;
+  mastery_summary: {
+    total: number;
+    mastered: number;
+    learning: number;
+    new: number;
+  };
+  recommendation: EducationRecommendation;
+  activity_summary: {
+    total_events: number;
+    completed_count: number;
+    quiz_completed: number;
+    quiz_correct: number;
+    last_event_at: number;
+  };
+  recent_events: LearningEvent[];
+}
+
+export async function getEducationDashboard(
+  courseId: string,
+): Promise<EducationDashboard> {
+  const response = await apiFetch(
+    apiUrl(`/api/v1/education/dashboard/${encodeURIComponent(courseId)}`),
+  );
+  return expectJson<EducationDashboard>(response);
+}
+
+export async function recordEducationEvent(
+  completion: ActivityCompletion,
+): Promise<LearningEvent> {
+  const response = await apiFetch(apiUrl("/api/v1/education/events"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(completion),
+  });
+  const data = await expectJson<{ event: LearningEvent }>(response);
+  return data.event;
 }

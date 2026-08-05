@@ -60,3 +60,62 @@ export interface EducationLaunchContext {
     modules: number;
   };
 }
+
+// --- M1: unified activity models -------------------------------------------
+
+export type EducationActivity =
+  | "lesson"
+  | "quiz"
+  | "animation"
+  | "storybook"
+  | "coding"
+  | "resource";
+
+export type ActivityEventType = "launched" | "completed" | "abandoned";
+
+export type RecommendationReasonCode =
+  | "pending_question"
+  | "due_review"
+  | "weak_point"
+  | "next_new_point"
+  | "preference_match"
+  | "course_complete";
+
+export interface LearningEvent {
+  id: string;
+  course_id: string;
+  mastery_path_id: string;
+  activity: EducationActivity;
+  event_type: ActivityEventType;
+  knowledge_point_id: string;
+  score: number | null;
+  duration_seconds: number | null;
+  idempotency_key: string;
+  created_at: number;
+}
+
+export interface RecommendationReason {
+  code: RecommendationReasonCode;
+  message_zh: string;
+  evidence: Record<string, string | number>;
+}
+
+export interface EducationRecommendation {
+  course_id: string;
+  knowledge_point_id: string;
+  knowledge_point_name: string;
+  activity: EducationActivity;
+  title: string;
+  reasons: RecommendationReason[];
+}
+
+export interface ActivityCompletion {
+  course_id: string;
+  mastery_path_id: string;
+  activity: EducationActivity;
+  event_type: ActivityEventType;
+  knowledge_point_id: string;
+  score: number | null;
+  duration_seconds: number | null;
+  idempotency_key: string;
+}

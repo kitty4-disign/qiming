@@ -2728,5 +2728,15 @@
   "K12 Tutor": "K12 Tutor",
   "Age-adaptive AI literacy tutor": "Age-adaptive AI literacy tutor",
   "Recommended for this course": "Recommended for this course",
-  "No recommended activities for this course": "No recommended activities for this course"
+  "No recommended activities for this course": "No recommended activities for this course",
+  "Next Step": "Next Step",
+  "Start": "Start",
+  "lesson": "Lesson",
+  "storybook": "Storybook",
+  "coding": "Coding",
+  "resource": "Resource",
+  "Started": "Started",
+  "Left": "Left",
+  "No learning activity yet": "No learning activity yet",
+  "Failed to load recommendation": "Failed to load recommendation"
 }

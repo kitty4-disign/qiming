@@ -1,23 +1,38 @@
 "use client";
 
-import { CircleCheck, Clock3, Sparkles } from "lucide-react";
+import { ArrowRight, CircleCheck, Clock3, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchMasteryMap, type MasteryMap } from "@/lib/learning-api";
 
-interface MasterySummaryProps {
-  pathId: string;
+interface MasteryCounts {
+  mastered: number;
+  learning: number;
+  new: number;
+  total: number;
 }
 
-export function MasterySummary({ pathId }: MasterySummaryProps) {
+interface MasterySummaryProps {
+  pathId: string;
+  masterySummary?: { total: number; mastered: number; learning: number; new: number } | null;
+  nextKnowledgePoint?: string;
+}
+
+export function MasterySummary({
+  pathId,
+  masterySummary,
+  nextKnowledgePoint,
+}: MasterySummaryProps) {
   const { t } = useTranslation();
   const [result, setResult] = useState<{
     pathId: string;
     map: MasteryMap | null;
   } | null>(null);
 
+  // Only fetch the mastery map if the dashboard didn't provide a summary.
   useEffect(() => {
+    if (masterySummary) return;
     let active = true;
     fetchMasteryMap(pathId)
       .then((result) => {
@@ -29,11 +44,18 @@ export function MasterySummary({ pathId }: MasterySummaryProps) {
     return () => {
       active = false;
     };
-  }, [pathId]);
+  }, [pathId, masterySummary]);
 
-  const loading = result?.pathId !== pathId;
+  const loading = !masterySummary && result?.pathId !== pathId;
   const map = result?.pathId === pathId ? result.map : null;
-  const counts = map?.counts ?? { mastered: 0, learning: 0, new: 0, total: 0 };
+  const counts: MasteryCounts = masterySummary
+    ? {
+        mastered: masterySummary.mastered,
+        learning: masterySummary.learning,
+        new: masterySummary.new,
+        total: masterySummary.total,
+      }
+    : map?.counts ?? { mastered: 0, learning: 0, new: 0, total: 0 };
   const metrics = [
     { key: "Mastered", value: counts.mastered, icon: CircleCheck },
     { key: "Learning", value: counts.learning, icon: Clock3 },
@@ -62,6 +84,14 @@ export function MasterySummary({ pathId }: MasterySummaryProps) {
           </div>
         ))}
       </div>
+      {nextKnowledgePoint && (
+        <div className="mt-3 flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
+          <ArrowRight aria-hidden="true" className="size-3 shrink-0 text-[var(--primary)]" />
+          <span>
+            {t("Next")}: <span className="font-medium text-[var(--foreground)]">{nextKnowledgePoint}</span>
+          </span>
+        </div>
+      )}
     </section>
   );
 }

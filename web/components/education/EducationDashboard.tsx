@@ -1,14 +1,16 @@
 "use client";
 
 import { Pencil } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CourseOverview } from "@/components/education/CourseOverview";
 import { LearningActionGrid } from "@/components/education/LearningActionGrid";
+import { LearningTimeline } from "@/components/education/LearningTimeline";
 import { MasterySummary } from "@/components/education/MasterySummary";
+import { RecommendedNextStep } from "@/components/education/RecommendedNextStep";
 import { StudentProfileForm } from "@/components/education/StudentProfileForm";
-import { getLaunchContext } from "@/lib/education-api";
+import { getEducationDashboard, getLaunchContext } from "@/lib/education-api";
 import type {
   EducationCatalog,
   EducationLaunchContext,
@@ -33,6 +35,31 @@ export function EducationDashboard({ catalog, profile }: EducationDashboardProps
     courseId: string;
     context: EducationLaunchContext | null;
   } | null>(null);
+  const [dashboardData, setDashboardData] = useState<{
+    courseId: string;
+    data: Awaited<ReturnType<typeof getEducationDashboard>> | null;
+  } | null>(null);
+  const [dashboardError, setDashboardError] = useState(false);
+
+  const fetchDashboard = useCallback((id: string) => {
+    let active = true;
+    getEducationDashboard(id)
+      .then((data) => {
+        if (active) {
+          setDashboardData({ courseId: id, data });
+          setDashboardError(false);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setDashboardData({ courseId: id, data: null });
+          setDashboardError(true);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!courseId) return;
@@ -44,10 +71,12 @@ export function EducationDashboard({ catalog, profile }: EducationDashboardProps
       .catch(() => {
         if (active) setLaunchResult({ courseId, context: null });
       });
+    const cleanup = fetchDashboard(courseId);
     return () => {
       active = false;
+      cleanup();
     };
-  }, [courseId]);
+  }, [courseId, fetchDashboard]);
 
   if (!textbook) return null;
   const course = textbook.courses.find((item) => item.id === courseId) ?? textbook.courses[0];
@@ -58,6 +87,10 @@ export function EducationDashboard({ catalog, profile }: EducationDashboardProps
   const kbWarning = launchContext?.warnings.some((warning) =>
     warning.startsWith("knowledge_base_not_ready:"),
   );
+  const dashboard = dashboardData?.courseId === courseId ? dashboardData.data : null;
+  const recommendation = dashboard?.recommendation ?? null;
+  const recentEvents = dashboard?.recent_events ?? [];
+  const masterySummary = dashboard?.mastery_summary ?? null;
 
   return (
     <div className="min-w-0">
@@ -130,13 +163,42 @@ export function EducationDashboard({ catalog, profile }: EducationDashboardProps
           )}
           <CourseOverview course={course} />
           {pathId ? (
-            <MasterySummary pathId={pathId} />
+            <MasterySummary
+              pathId={pathId}
+              masterySummary={masterySummary}
+              nextKnowledgePoint={recommendation?.knowledge_point_name}
+            />
           ) : (
             <section className="border-t border-[var(--border)] py-6">
               <div className="h-16 animate-pulse rounded bg-[var(--muted)]" />
             </section>
           )}
-          <LearningActionGrid course={course} launchContext={launchContext} />
+          {recommendation && (
+            <RecommendedNextStep
+              recommendation={recommendation}
+              course={course}
+              profile={currentProfile}
+              launchContext={launchContext}
+              onLaunched={() => fetchDashboard(courseId)}
+            />
+          )}
+          {dashboardError && (
+            <div
+              role="alert"
+              className="border-t border-[var(--border)] py-4 text-sm text-[var(--muted-foreground)]"
+            >
+              {t("Failed to load recommendation")}
+              <button
+                type="button"
+                onClick={() => fetchDashboard(courseId)}
+                className="ml-2 underline text-[var(--primary)]"
+              >
+                {t("Retry")}
+              </button>
+            </div>
+          )}
+          <LearningActionGrid course={course} profile={currentProfile} launchContext={launchContext} />
+          <LearningTimeline events={recentEvents} />
         </>
       )}
     </div>

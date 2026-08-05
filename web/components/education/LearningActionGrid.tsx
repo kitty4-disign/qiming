@@ -13,6 +13,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { getLaunchContext } from "@/lib/education-api";
+import { buildEducationLaunchIntent } from "@/lib/education-launch-builder";
 import {
   saveEducationLaunch,
   type EducationAction,
@@ -21,10 +22,12 @@ import type {
   EducationCourse,
   EducationLaunchContext,
   LearningModality,
+  StudentProfile,
 } from "@/lib/education-types";
 
 interface LearningActionGridProps {
   course: EducationCourse;
+  profile: StudentProfile;
   launchContext: EducationLaunchContext | null;
 }
 
@@ -78,16 +81,11 @@ const ACTIONS: Array<{
   },
 ];
 
-export function LearningActionGrid({ course, launchContext }: LearningActionGridProps) {
+export function LearningActionGrid({ course, profile, launchContext }: LearningActionGridProps) {
   const router = useRouter();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [pending, setPending] = useState<EducationAction | null>(null);
   const [error, setError] = useState("");
-  const isChinese = i18n.language.startsWith("zh");
-  const topic = isChinese ? course.title_zh : course.title_en;
-  const summary = isChinese
-    ? course.summary_zh
-    : course.summary_en || course.summary_zh;
 
   const visibleActions = useMemo(() => {
     const recommended = new Set(course.recommended_actions);
@@ -101,24 +99,21 @@ export function LearningActionGrid({ course, launchContext }: LearningActionGrid
       setError("");
       try {
         const context = launchContext ?? (await getLaunchContext(course.id));
-        saveEducationLaunch({
-          version: 1,
-          action: action.action,
-          courseId: course.id,
-          topic,
-          masteryPathId: context.mastery_path_id,
-          knowledgeBases: context.knowledge_bases,
-          summary,
-          knowledgePoints: course.knowledge_points,
-          createdAt: Date.now(),
-        });
+        saveEducationLaunch(
+          buildEducationLaunchIntent({
+            action: action.action,
+            course,
+            profile,
+            launchContext: context,
+          }),
+        );
         router.push(action.route);
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : t("Launch failed"));
         setPending(null);
       }
     },
-    [course.id, course.knowledge_points, launchContext, router, summary, t, topic],
+    [course, profile, launchContext, router, t],
   );
 
   return (
