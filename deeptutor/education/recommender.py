@@ -296,16 +296,23 @@ def recommend(ctx: RecommendationContext) -> EducationRecommendation:
 
 
 def summarize_mastery(progress: LearningProgress) -> dict[str, int | float]:
-    """Compact mastery counts for the dashboard."""
+    """Compact mastery counts for the dashboard.
+
+    A knowledge point counts as "learning" (not "new") once the student has
+    produced any evidence for it — a quiz attempt or a non-zero mastery level —
+    even if every attempt was wrong (mastery 0.0). This prevents a fully-wrong
+    KP from being mislabelled as untouched.
+    """
     kp_ids = [kp.id for m in progress.modules for kp in m.knowledge_points]
-    mastered = sum(
-        1 for kp_id in kp_ids if progress.mastery_levels.get(kp_id, 0.0) >= _MASTERY_THRESHOLD
-    )
-    learning = sum(
-        1
-        for kp_id in kp_ids
-        if 0.0 < progress.mastery_levels.get(kp_id, 0.0) < _MASTERY_THRESHOLD
-    )
+    attempted_kp_ids = {a.knowledge_point_id for a in progress.quiz_attempts}
+    mastered = 0
+    learning = 0
+    for kp_id in kp_ids:
+        level = progress.mastery_levels.get(kp_id, 0.0)
+        if level >= _MASTERY_THRESHOLD:
+            mastered += 1
+        elif kp_id in attempted_kp_ids or level > 0.0:
+            learning += 1
     new = len(kp_ids) - mastered - learning
     return {
         "total": len(kp_ids),
