@@ -118,8 +118,10 @@ test("K12 competition flow reuses tutor, quiz, and responsive workspace", async 
   await quiz.getByRole("button", { name: "打开" }).click();
 
   await expect(page).toHaveURL(/\/home/);
-  await expect(page.getByRole("button", { name: /测验/ })).toBeVisible();
-  await expect(page.getByLabel("数量")).toHaveValue("3");
+  // Quiz now routes to k12_tutor with activity_mode=quiz (not deep_question).
+  await expect(page.getByRole("button", { name: /K12 学习导师/ })).toBeVisible();
+  const quizComposer = page.locator("textarea");
+  await expect(quizComposer).toHaveValue(/趣味测验/);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/education");

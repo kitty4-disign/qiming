@@ -54,7 +54,11 @@ class K12TutorCapability(BaseCapability):
         context.metadata["mastery_path_id"] = expected_path
         context.metadata["education_course_id"] = course.id
         context.metadata["education_warnings"] = warnings
-        guidance = render_k12_guidance(profile, language=context.language)
+        activity_mode = str(context.config_overrides.get("activity_mode") or "lesson")
+        context.metadata["education_activity_mode"] = activity_mode
+        guidance = render_k12_guidance(
+            profile, language=context.language, activity_mode=activity_mode
+        )
         context.persona_context = "\n\n".join(
             part for part in (context.persona_context.strip(), guidance) if part
         )

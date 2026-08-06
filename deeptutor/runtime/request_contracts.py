@@ -78,6 +78,11 @@ class K12TutorRequestConfig(BaseModel):
     mastery_path_id: str = Field(
         min_length=1, max_length=180, pattern=r"^[A-Za-z0-9_-]+$"
     )
+    # ``lesson`` = explain/diagnose; ``quiz`` = pose one question, grade it,
+    # update mastery; ``coding`` = scaffolded code practice.  The mode is read
+    # by the capability and injected into the tutor guidance so the model
+    # follows the right mastery flow without guessing.
+    activity_mode: Literal["lesson", "quiz", "coding"] = "lesson"
 
 
 def _clean_public_config(raw_config: dict[str, Any] | None) -> dict[str, Any]:
