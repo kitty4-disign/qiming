@@ -19,6 +19,18 @@ class Course(BaseModel):
     summary_en: str = ""
     knowledge_points: list[str] = Field(min_length=1)
     recommended_actions: list[str] = Field(min_length=1)
+    # Catalog v2 fields (M4 §9.2). All have defaults so v1 YAML stays valid.
+    prerequisite_ids: list[str] = Field(default_factory=list)
+    estimated_minutes: int = Field(default=20, ge=1, le=600)
+    difficulty: int = Field(default=1, ge=1, le=5)
+    age_policy: str = Field(default="", max_length=40)
+    default_knowledge_point_id: str = Field(default="", max_length=80)
+    resource_ids: list[str] = Field(default_factory=list)
+    coding_task_ids: list[str] = Field(default_factory=list)
+    learning_objectives: list[str] = Field(default_factory=list, max_length=10)
+    common_misconceptions: list[str] = Field(default_factory=list, max_length=10)
+    safety_notes: str = Field(default="", max_length=1000)
+    reference_sources: list[str] = Field(default_factory=list, max_length=10)
 
 
 class Textbook(BaseModel):

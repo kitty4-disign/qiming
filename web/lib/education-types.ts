@@ -30,6 +30,18 @@ export interface EducationCourse {
   summary_en?: string;
   knowledge_points: string[];
   recommended_actions: LearningModality[];
+  // Catalog v2 fields (M4 §9.2). All optional for v1 backward compat.
+  prerequisite_ids?: string[];
+  estimated_minutes?: number;
+  difficulty?: number;
+  age_policy?: string;
+  default_knowledge_point_id?: string;
+  resource_ids?: string[];
+  coding_task_ids?: string[];
+  learning_objectives?: string[];
+  common_misconceptions?: string[];
+  safety_notes?: string;
+  reference_sources?: string[];
 }
 
 export interface EducationTextbook {

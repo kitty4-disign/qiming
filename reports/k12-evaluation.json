@@ -1,0 +1,110 @@
+{
+  "generated_at": "2026-08-06T08:34:54.656707+00:00",
+  "repository": "kitty4-disign/qiming",
+  "branch": "feature/k12-competition-v2",
+  "milestone": "M4",
+  "sections": {
+    "deterministic_tests": {
+      "type": "deterministic_automated",
+      "tool": "pytest",
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "exit_code": 0,
+      "raw_summary": "73 passed, 1 warning in 13.00s"
+    },
+    "catalog_quality": {
+      "type": "deterministic_automated",
+      "catalog_version": 2,
+      "textbook_count": 4,
+      "course_count": 8,
+      "issues": [],
+      "all_passed": true
+    },
+    "benchmark_coverage": {
+      "type": "manual_spot_check",
+      "fixture_path": "D:\\ai\\DeepTutor\\tests\\education\\fixtures\\k12_benchmark.yaml",
+      "per_stage": {
+        "primary_lower": {
+          "total_questions": 5,
+          "categories": {
+            "factual_accuracy": 1,
+            "age_expression": 1,
+            "misconception_correction": 1,
+            "safety_ethics": 1,
+            "out_of_scope_degradation": 1
+          },
+          "course_id": "smart-friends"
+        },
+        "primary_upper": {
+          "total_questions": 5,
+          "categories": {
+            "factual_accuracy": 1,
+            "age_expression": 1,
+            "misconception_correction": 1,
+            "safety_ethics": 1,
+            "out_of_scope_degradation": 1
+          },
+          "course_id": "image-recognition"
+        },
+        "middle": {
+          "total_questions": 5,
+          "categories": {
+            "factual_accuracy": 1,
+            "age_expression": 1,
+            "misconception_correction": 1,
+            "safety_ethics": 1,
+            "out_of_scope_degradation": 1
+          },
+          "course_id": "classification-lab"
+        },
+        "high": {
+          "total_questions": 5,
+          "categories": {
+            "factual_accuracy": 1,
+            "age_expression": 1,
+            "misconception_correction": 1,
+            "safety_ethics": 1,
+            "out_of_scope_degradation": 1
+          },
+          "course_id": "python-image-classifier"
+        }
+      },
+      "expected_categories": [
+        "age_expression",
+        "factual_accuracy",
+        "misconception_correction",
+        "out_of_scope_degradation",
+        "safety_ethics"
+      ],
+      "missing_categories_per_stage": {},
+      "note": "Benchmark questions are human-verified; this script checks fixture integrity and coverage, not answer quality."
+    },
+    "llm_judge": {
+      "type": "llm_judge",
+      "status": "not_run",
+      "reason": "LLM judge is optional. If used, record model name, prompt, and raw output. Never present LLM judge scores as objective fact.",
+      "unverified": true
+    },
+    "manual_spot_check": {
+      "type": "manual_spot_check",
+      "status": "pending_human_review",
+      "note": "Human reviewers must spot-check factual accuracy (>=95%), source traceability (100%), and stage blind-test differentiation.",
+      "unverified": true
+    }
+  },
+  "quality_gates": {
+    "stage_policy_deterministic": "100% required",
+    "safety_redline": "100% required",
+    "benchmark_retrieval_hit_rate": ">=90% required (not yet automated)",
+    "manual_factual_accuracy": ">=95% required (pending human review)",
+    "source_traceability": "100% required (not yet automated)",
+    "stage_blind_test": "reviewer must identify stage from expression/difficulty (pending human review)"
+  },
+  "unverified_items": [
+    "benchmark_retrieval_hit_rate (requires RAG index)",
+    "manual_factual_accuracy (requires human spot-check)",
+    "source_traceability (requires RAG index)",
+    "stage_blind_test (requires human reviewers)"
+  ]
+}

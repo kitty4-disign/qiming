@@ -1,4 +1,4 @@
-version: 1
+version: 2
 textbooks:
 - id: k12-ai-primary-lower
   title_zh: AI启蒙小课堂
@@ -21,6 +21,59 @@ textbooks:
     - dialogue
     - storybook
     - quiz
+    prerequisite_ids: []
+    estimated_minutes: 20
+    difficulty: 1
+    age_policy: primary_lower
+    default_knowledge_point_id: 指令与顺序
+    resource_ids: []
+    coding_task_ids: []
+    learning_objectives:
+    - 能按顺序排列指令让机器完成任务
+    - 能在一组例子中找出相同模式
+    - 能用自己的话描述机器学习是什么
+    - 能识别不安全的人工智能使用场景
+    common_misconceptions:
+    - 机器人和人一样会思考
+    - 人工智能永远不会犯错
+    safety_notes: 不与陌生人分享个人信息；遇到不舒服的内容立即告诉家长或老师。
+    reference_sources:
+    - 中国教育部《义务教育信息科技课程标准（2022年版）》
+    - CSTA K-12 Computer Science Standards (2017)
+  - id: command-park
+    title_zh: 指令闯关乐园
+    title_en: Command Adventure Park
+    summary_zh: 在闯关游戏中学习顺序、循环和条件判断。
+    summary_en: Learn sequencing, loops, and conditionals through puzzle games.
+    knowledge_points:
+    - 顺序指令
+    - 循环重复
+    - 条件判断
+    - 调试与重试
+    recommended_actions:
+    - dialogue
+    - storybook
+    - quiz
+    prerequisite_ids:
+    - smart-friends
+    estimated_minutes: 25
+    difficulty: 1
+    age_policy: primary_lower
+    default_knowledge_point_id: 顺序指令
+    resource_ids: []
+    coding_task_ids: []
+    learning_objectives:
+    - 能用顺序指令完成简单任务
+    - 能识别可以使用循环的场景
+    - 能用条件判断选择不同路径
+    - 能在失败后调整指令
+    common_misconceptions:
+    - 循环就是一直重复不能停
+    - 条件判断只能在最后用
+    safety_notes: 控制屏幕时间，每 20 分钟休息一次。
+    reference_sources:
+    - 中国教育部《义务教育信息科技课程标准（2022年版）》
+    - Code.org K-5 Curriculum Framework
 - id: k12-ai-primary-upper
   title_zh: AI探索与创造
   title_en: Explore and Create with AI
@@ -44,6 +97,60 @@ textbooks:
     - animation
     - storybook
     - quiz
+    prerequisite_ids: []
+    estimated_minutes: 30
+    difficulty: 2
+    age_policy: primary_upper
+    default_knowledge_point_id: 像素与数字图像
+    resource_ids: []
+    coding_task_ids: []
+    learning_objectives:
+    - 能用网格表示数字图像
+    - 能提取简单的图像特征
+    - 能区分训练集和测试集的作用
+    - 能识别识别偏差的危害
+    common_misconceptions:
+    - 机器看到图片和人看到的一样
+    - 训练数据越多一定越准确
+    safety_notes: 不上传自己或同学的照片到人工智能工具；识别结果可能出错。
+    reference_sources:
+    - 中国教育部《义务教育信息科技课程标准（2022年版）》
+    - MIT Scratch AI Extensions Documentation
+  - id: robot-sensing
+    title_zh: 机器人感知任务
+    title_en: Robot Sensing Mission
+    summary_zh: 了解机器人如何用传感器感知世界并做出决策。
+    summary_en: Understand how robots use sensors to perceive the world and make decisions.
+    knowledge_points:
+    - 传感器与信号
+    - 距离与避障
+    - 简单决策规则
+    - 传感器误差
+    recommended_actions:
+    - dialogue
+    - animation
+    - storybook
+    - quiz
+    prerequisite_ids:
+    - image-recognition
+    estimated_minutes: 30
+    difficulty: 2
+    age_policy: primary_upper
+    default_knowledge_point_id: 传感器与信号
+    resource_ids: []
+    coding_task_ids: []
+    learning_objectives:
+    - 能说出至少两种传感器类型
+    - 能解释机器人如何用距离传感器避障
+    - 能用简单规则描述决策过程
+    - 能识别传感器读数可能出错
+    common_misconceptions:
+    - 机器人能像人一样理解环境
+    - 传感器永远不会出错
+    safety_notes: 不拆解电子设备；实验时注意电池安全。
+    reference_sources:
+    - 中国教育部《义务教育信息科技课程标准（2022年版）》
+    - NASA Robotics for Kids Resources
 - id: k12-ai-middle
   title_zh: 机器学习实验室
   title_en: Machine Learning Lab
@@ -68,6 +175,61 @@ textbooks:
     - animation
     - coding
     - quiz
+    prerequisite_ids: []
+    estimated_minutes: 40
+    difficulty: 3
+    age_policy: middle
+    default_knowledge_point_id: 数据与标签
+    resource_ids: []
+    coding_task_ids: []
+    learning_objectives:
+    - 能区分结构化数据中的特征与标签
+    - 能选择合适特征进行分类
+    - 能解释训练集与测试集的作用
+    - 能计算准确率并解读混淆矩阵
+    - 能讨论数据偏见的影响
+    common_misconceptions:
+    - 训练准确率高代表模型一定好
+    - 测试数据可以和训练数据重复
+    safety_notes: 不使用涉及个人隐私的数据集；数据来源要可追溯。
+    reference_sources:
+    - 中国教育部《义务教育信息科技课程标准（2022年版）》
+    - UCI Machine Learning Repository
+  - id: ai-fairness-detective
+    title_zh: AI公平侦探
+    title_en: AI Fairness Detective
+    summary_zh: 通过案例调查人工智能可能产生的不公平，学习如何识别和缓解。
+    summary_en: Investigate AI unfairness through cases and learn to identify and mitigate
+      it.
+    knowledge_points:
+    - 公平性概念
+    - 偏见来源
+    - 评估公平性
+    - 缓解策略
+    recommended_actions:
+    - dialogue
+    - animation
+    - quiz
+    prerequisite_ids:
+    - classification-lab
+    estimated_minutes: 35
+    difficulty: 3
+    age_policy: middle
+    default_knowledge_point_id: 公平性概念
+    resource_ids: []
+    coding_task_ids: []
+    learning_objectives:
+    - 能定义公平性的基本含义
+    - 能列举至少两种偏见来源
+    - 能用简单指标评估公平性
+    - 能提出至少一种缓解策略
+    common_misconceptions:
+    - 人工智能一定是客观中立的
+    - 只要数据量大就不会有偏见
+    safety_notes: 讨论公平性案例时尊重不同观点；不评判个人。
+    reference_sources:
+    - 中国教育部《义务教育信息科技课程标准（2022年版）》
+    - AI Fairness 101 (Partnership on AI)
 - id: k12-ai-high
   title_zh: Python人工智能项目
   title_en: Python AI Projects
@@ -92,3 +254,62 @@ textbooks:
     - coding
     - animation
     - quiz
+    prerequisite_ids: []
+    estimated_minutes: 50
+    difficulty: 4
+    age_policy: high
+    default_knowledge_point_id: 数组表示图像
+    resource_ids: []
+    coding_task_ids:
+    - image-features-nearest-centroid
+    learning_objectives:
+    - 能用二维数组表示灰度图像
+    - 能提取行均值等简单特征
+    - 能实现最近质心分类器
+    - 能划分训练集与测试集
+    - 能计算准确率并分析模型局限
+    common_misconceptions:
+    - 深度学习总是比简单方法好
+    - 测试集准确率等于真实场景准确率
+    safety_notes: 不下载未授权数据集；运行代码前检查数据来源。
+    reference_sources:
+    - 中国教育部《普通高中信息技术课程标准（2017年版2020年修订）》
+    - Python Documentation - Standard Library
+  - id: mini-recommender
+    title_zh: 小型推荐系统项目
+    title_en: Mini Recommender System Project
+    summary_zh: 用协同过滤实现一个简单的推荐系统，理解推荐算法的工作原理与局限。
+    summary_en: Build a simple recommender with collaborative filtering and understand
+      its principles and limitations.
+    knowledge_points:
+    - 推荐场景与目标
+    - 用户-物品矩阵
+    - 协同过滤
+    - 推荐评价指标
+    - 算法局限与信息茧房
+    recommended_actions:
+    - dialogue
+    - coding
+    - animation
+    - quiz
+    prerequisite_ids:
+    - python-image-classifier
+    estimated_minutes: 60
+    difficulty: 4
+    age_policy: high
+    default_knowledge_point_id: 推荐场景与目标
+    resource_ids: []
+    coding_task_ids: []
+    learning_objectives:
+    - 能定义推荐系统的目标与场景
+    - 能构建用户-物品矩阵
+    - 能实现简单协同过滤算法
+    - 能用离线指标评价推荐效果
+    - 能讨论信息茧房等算法局限
+    common_misconceptions:
+    - 推荐算法总是知道用户想要什么
+    - 推荐结果完全基于内容质量
+    safety_notes: 不收集未授权的用户行为数据；讨论信息茧房时保持中立。
+    reference_sources:
+    - 中国教育部《普通高中信息技术课程标准（2017年版2020年修订）》
+    - Recommender Systems (Jannach et al., 2011)
