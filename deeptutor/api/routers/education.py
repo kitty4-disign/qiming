@@ -7,6 +7,10 @@ from deeptutor.education.catalog import (
     resolve_curriculum,
     resolve_visible_knowledge_bases,
 )
+from deeptutor.education.code_runner import CodeRunError, run_student_code
+from deeptutor.education.coding_models import CodeRunRequest
+from deeptutor.education.coding_tasks import get_coding_task, list_coding_tasks
+from deeptutor.education.gamification import compute_gamification
 from deeptutor.education.mastery_seed import ensure_course_mastery_path
 from deeptutor.education.models import StudentProfile
 from deeptutor.education.path_ids import build_mastery_path_id
@@ -157,3 +161,98 @@ async def get_dashboard(course_id: str):
         "activity_summary": activity_summary,
         "recent_events": [event.model_dump(mode="json") for event in recent_events],
     }
+
+
+@router.get("/coding-tasks")
+async def list_tasks(course_id: str | None = None):
+    """List coding tasks. Hidden tests and hints are stripped from the response."""
+    tasks = list_coding_tasks(course_id)
+    return {
+        "tasks": [
+            {
+                "id": t.id,
+                "course_id": t.course_id,
+                "stage": t.stage.value,
+                "title": t.title,
+                "instructions": t.instructions,
+                "starter_code": t.starter_code,
+                "allowed_languages": t.allowed_languages,
+                "visible_tests": [tc.model_dump(mode="json") for tc in t.visible_tests],
+                "hint_count": len(t.hints),
+            }
+            for t in tasks
+        ]
+    }
+
+
+@router.get("/coding-tasks/{task_id}")
+async def get_task(task_id: str):
+    """Get a coding task. Hidden tests are never returned; hints are returned
+    one at a time via the hint endpoint."""
+    task = get_coding_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="task_not_found")
+    return {
+        "id": task.id,
+        "course_id": task.course_id,
+        "stage": task.stage.value,
+        "title": task.title,
+        "instructions": task.instructions,
+        "starter_code": task.starter_code,
+        "allowed_languages": task.allowed_languages,
+        "visible_tests": [tc.model_dump(mode="json") for tc in task.visible_tests],
+        "hint_count": len(task.hints),
+    }
+
+
+@router.post("/code/run")
+async def run_code(request: CodeRunRequest):
+    """Run student code in the sandbox and evaluate against tests.
+
+    Returns 503 when the sandbox is unavailable — never silently fakes success.
+    """
+    try:
+        result = await run_student_code(request)
+    except CodeRunError as exc:
+        detail = str(exc)
+        status = 503 if detail == "sandbox_unavailable" else 400
+        raise HTTPException(status_code=status, detail=detail) from exc
+    return {"result": result.model_dump(mode="json")}
+
+
+@router.get("/coding-tasks/{task_id}/hint")
+async def get_hint(task_id: str, attempt: int = 0):
+    """Progressive hint. First attempt (attempt=0) gives guidance, never the
+    full answer."""
+    from deeptutor.education.code_runner import get_hint as _get_hint
+
+    task = get_coding_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="task_not_found")
+    return {"hint": _get_hint(task, attempt)}
+
+
+@router.get("/gamification/{course_id}")
+async def get_gamification(course_id: str):
+    """Derive gamification state from real learning records.
+
+    Pure derivation: same inputs always produce same outputs. Refresh never
+    inflates XP or badges because nothing is stored — it is recomputed from
+    mastery + events on every call.
+    """
+    profile = _profile_service().load()
+    if profile is None:
+        raise HTTPException(status_code=409, detail="education_profile_required")
+    textbook = resolve_curriculum(profile)
+    course = next((item for item in textbook.courses if item.id == course_id), None)
+    if course is None:
+        raise HTTPException(status_code=404, detail="course_not_found")
+    mastery_path_id = build_mastery_path_id(textbook.id, course.id)
+    progress = ensure_course_mastery_path(
+        course,
+        textbook_id=textbook.id,
+        path_id=mastery_path_id,
+    )
+    events = _activity_service().list_for_course(course_id, limit=500)
+    summary = compute_gamification(progress, events)
+    return {"gamification": summary.__dict__}
