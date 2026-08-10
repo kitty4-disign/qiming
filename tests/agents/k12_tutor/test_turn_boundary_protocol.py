@@ -1,4 +1,8 @@
-from deeptutor.agents.k12_tutor.capability import _turn_boundary_protocol
+from deeptutor.agents.k12_tutor.capability import (
+    _teaching_decision_protocol,
+    _turn_boundary_protocol,
+)
+from deeptutor.education.teaching_policy import TeachingDecision
 
 
 def test_quiz_launch_registers_only_question_one() -> None:
@@ -64,3 +68,28 @@ def test_english_final_quiz_stops_at_configured_limit() -> None:
     assert "3/3 answers submitted" in text
     assert "do NOT call mastery_quiz or ask_user again" in text
     assert "do NOT create an extra question" in text
+
+
+def test_teaching_decision_protocol_exposes_policy_parameters() -> None:
+    decision = TeachingDecision(
+        activity="quiz",
+        difficulty=3,
+        explanation_depth=2,
+        question_count=3,
+        hint_level="medium",
+        use_code=False,
+        use_visualization=True,
+        knowledge_point_id="kp-image-features",
+        reason_codes=["STAGE_MIDDLE", "LOW_MASTERY"],
+    )
+
+    text = _teaching_decision_protocol("zh", decision)
+
+    assert "活动：quiz" in text
+    assert "难度级别：3/4" in text
+    assert "解释深度：2/4" in text
+    assert "提示强度：medium" in text
+    assert "建议本轮问题预算：3" in text
+    assert "kp-image-features" in text
+    assert "STAGE_MIDDLE, LOW_MASTERY" in text
+    assert "mastery_status 的硬门控" in text
