@@ -21,13 +21,19 @@ Usage:
 """
 
 from .base_session_manager import BaseSessionManager
+from .k12_continuation import install_k12_continuation
 from .protocol import SessionStoreProtocol
 from .sqlite_store import (
     SQLiteSessionStore,
     get_sqlite_session_store,
     make_imported_session_id,
 )
-from .turn_runtime import TurnRuntimeManager, get_turn_runtime_manager
+from .turn_runtime import TurnRuntimeManager, get_turn_runtime_manager as _get_turn_runtime_manager
+
+
+def get_turn_runtime_manager() -> TurnRuntimeManager:
+    """Return the shared runtime with deterministic K12 continuation enabled."""
+    return install_k12_continuation(_get_turn_runtime_manager())
 
 
 def get_session_store() -> SessionStoreProtocol:
