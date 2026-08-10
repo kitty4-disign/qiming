@@ -55,13 +55,46 @@ async def wait_for_turn_terminal(
         await asyncio.sleep(max(0.0, poll_interval))
 
 
+def advance_quiz_state(config: dict[str, Any], answered_turn_id: str) -> dict[str, Any]:
+    """Advance one quiz answer exactly once for a completed boundary turn.
+
+    The counters live in capability_config, which ``start_turn`` already
+    persists as a K12 session preference. ``quiz_last_answered_turn_id`` makes
+    repeated submissions of the same card idempotent instead of accidentally
+    turning a three-question quiz into a two-question one.
+    """
+    next_config = dict(config)
+    if str(next_config.get("activity_mode") or "") != "quiz":
+        return next_config
+
+    total = int(next_config.get("quiz_question_count") or 3)
+    total = max(1, min(10, total))
+    answered = int(next_config.get("quiz_answered_count") or 0)
+    answered = max(0, min(total, answered))
+    last_turn = str(next_config.get("quiz_last_answered_turn_id") or "")
+
+    if answered_turn_id and answered_turn_id != last_turn and answered < total:
+        answered += 1
+        last_turn = answered_turn_id
+
+    next_config["quiz_question_count"] = total
+    next_config["quiz_answered_count"] = answered
+    next_config["quiz_last_answered_turn_id"] = last_turn
+    return next_config
+
+
 def _follow_up_payload(
     *,
     session_id: str,
     preferences: dict[str, Any],
     content: str,
+    answered_turn_id: str,
 ) -> dict[str, Any]:
     """Build an explicit K12 follow-up payload from stored session state."""
+    config = advance_quiz_state(
+        dict(preferences.get("capability_config") or {}),
+        answered_turn_id,
+    )
     payload: dict[str, Any] = {
         "session_id": session_id,
         "capability": _K12_CAPABILITY,
@@ -69,7 +102,7 @@ def _follow_up_payload(
         "tools": list(preferences.get("tools") or []),
         "knowledge_bases": list(preferences.get("knowledge_bases") or []),
         "language": str(preferences.get("language") or "en"),
-        "config": dict(preferences.get("capability_config") or {}),
+        "config": config,
     }
     if "education_context" in preferences:
         payload["education_context"] = preferences.get("education_context")
@@ -122,6 +155,7 @@ async def continue_k12_reply(
         session_id=session_id,
         preferences=preferences,
         content=flatten_k12_reply(text, answers),
+        answered_turn_id=turn_id,
     )
     try:
         _, new_turn = await runtime.start_turn(payload)
@@ -165,6 +199,7 @@ def install_k12_continuation(runtime: Any) -> Any:
 
 
 __all__ = [
+    "advance_quiz_state",
     "continue_k12_reply",
     "flatten_k12_reply",
     "install_k12_continuation",
