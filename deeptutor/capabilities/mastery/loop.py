@@ -47,6 +47,16 @@ class MasteryLoopCapability:
             updated["_mastery_path_id"] = str(context.metadata.get("mastery_path_id") or "").strip()
             updated["_session_id"] = str(context.session_id or "").strip()
             updated["_turn_id"] = str(context.metadata.get("turn_id") or "").strip()
+            if tool_name == "mastery_quiz":
+                # K12 quiz runs expose their deterministic server-side count via
+                # metadata. The tool itself enforces this private flag, so even
+                # an LLM that ignores the final-turn prompt cannot register Q4.
+                updated["_quiz_question_limit_reached"] = bool(
+                    context.metadata.get("education_quiz_limit_reached")
+                )
+                updated["_quiz_question_count"] = int(
+                    context.metadata.get("education_quiz_question_count") or 0
+                )
             return updated
         return kwargs
 
