@@ -151,6 +151,15 @@ async def continue_k12_reply(
         return False
 
     preferences = session.get("preferences") or {}
+    current_config = dict(preferences.get("capability_config") or {})
+    if (
+        str(current_config.get("activity_mode") or "") == "quiz"
+        and str(current_config.get("quiz_last_answered_turn_id") or "") == turn_id
+    ):
+        # The same card was already consumed and its follow-up was persisted.
+        # Returning False is safer than grading the same learner answer twice.
+        return False
+
     payload = _follow_up_payload(
         session_id=session_id,
         preferences=preferences,
