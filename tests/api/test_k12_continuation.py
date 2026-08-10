@@ -4,9 +4,10 @@ from typing import Any
 
 import pytest
 
-from deeptutor.api.routers.k12_continuation import (
+from deeptutor.services.session.k12_continuation import (
     continue_k12_reply,
     flatten_k12_reply,
+    install_k12_continuation,
 )
 
 
@@ -16,9 +17,11 @@ class _FakeStore:
         *,
         statuses: list[str],
         preferences: dict[str, Any] | None = None,
+        capability: str = "k12_tutor",
     ) -> None:
         self.statuses = list(statuses)
         self.preferences = preferences or {}
+        self.capability = capability
         self.reads = 0
 
     async def get_turn(self, turn_id: str) -> dict[str, Any]:
@@ -27,7 +30,7 @@ class _FakeStore:
         return {
             "id": turn_id,
             "session_id": "session-1",
-            "capability": "k12_tutor",
+            "capability": self.capability,
             "status": self.statuses[index],
         }
 
@@ -39,6 +42,7 @@ class _FakeRuntime:
     def __init__(self, store: _FakeStore) -> None:
         self.store = store
         self.started_payload: dict[str, Any] | None = None
+        self.original_reply_calls: list[tuple[str, str | None, list[dict[str, Any]] | None]] = []
 
     async def start_turn(
         self,
@@ -46,6 +50,16 @@ class _FakeRuntime:
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         self.started_payload = dict(payload)
         return {"id": "session-1"}, {"id": "turn-2"}
+
+    async def submit_user_reply(
+        self,
+        turn_id: str,
+        text: str | None = None,
+        *,
+        answers: list[dict[str, Any]] | None = None,
+    ) -> str | bool:
+        self.original_reply_calls.append((turn_id, text, answers))
+        return True
 
 
 def test_flatten_k12_reply_prefers_structured_answers() -> None:
@@ -104,6 +118,30 @@ async def test_k12_reply_waits_for_terminal_and_preserves_session_context() -> N
     assert runtime.started_payload["education_context"] == preferences["education_context"]
     assert runtime.started_payload["persona"] == "Socratic"
     assert runtime.started_payload["llm_selection"] == preferences["llm_selection"]
+
+
+@pytest.mark.asyncio
+async def test_installed_wrapper_returns_new_turn_id_for_k12() -> None:
+    runtime = _FakeRuntime(_FakeStore(statuses=["completed"]))
+    install_k12_continuation(runtime)
+
+    result = await runtime.submit_user_reply("turn-1", text="B")
+
+    assert result == "turn-2"
+    assert runtime.original_reply_calls == []
+
+
+@pytest.mark.asyncio
+async def test_installed_wrapper_delegates_non_k12_reply() -> None:
+    runtime = _FakeRuntime(
+        _FakeStore(statuses=["running"], capability="chat")
+    )
+    install_k12_continuation(runtime)
+
+    result = await runtime.submit_user_reply("turn-1", text="hello")
+
+    assert result is True
+    assert runtime.original_reply_calls == [("turn-1", "hello", None)]
 
 
 @pytest.mark.asyncio
