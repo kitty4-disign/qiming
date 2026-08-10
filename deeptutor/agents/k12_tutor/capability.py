@@ -136,21 +136,29 @@ class K12TutorCapability(BaseCapability):
         context.metadata["mastery_path_id"] = expected_path
         context.metadata["education_course_id"] = course.id
         context.metadata["education_warnings"] = warnings
-        # K12 teaching is a persistent multi-turn session: ``ask_user`` ends the
-        # current tutor turn (the question card is the turn's final artefact) and
-        # the learner's answer starts a NEW turn with a fresh round budget —
-        # instead of pausing the SAME loop, which would burn one shared budget
-        # across every Q&A cycle and blow the loop's round cap after a few
-        # exchanges. The pipeline reads this marker to pick that behaviour.
         context.metadata["ask_user_turn_boundary"] = True
-        # Modest capability-scoped floor so one teaching segment (status -> quiz
-        # -> ask_user, or grade -> feedback -> next question) always fits inside
-        # a single turn's loop. NOT an unbounded budget: the floor only lifts
-        # this capability's turns, and the forced-finish path still safe-pauses
-        # rather than faking completion or leaking tool protocol.
         context.metadata["_min_loop_rounds"] = 10
         activity_mode = str(context.config_overrides.get("activity_mode") or "lesson")
         context.metadata["education_activity_mode"] = activity_mode
+
+        quiz_question_count = max(
+            1,
+            min(10, int(context.config_overrides.get("quiz_question_count") or 3)),
+        )
+        quiz_answered_count = max(
+            0,
+            min(
+                quiz_question_count,
+                int(context.config_overrides.get("quiz_answered_count") or 0),
+            ),
+        )
+        if activity_mode == "quiz":
+            context.metadata["education_quiz_question_count"] = quiz_question_count
+            context.metadata["education_quiz_answered_count"] = quiz_answered_count
+            context.metadata["education_quiz_limit_reached"] = (
+                quiz_answered_count >= quiz_question_count
+            )
+
         target_knowledge_point = None
         if education_context is not None and education_context.knowledge_point_id:
             target_knowledge_point = next(
@@ -180,8 +188,8 @@ class K12TutorCapability(BaseCapability):
         boundary_protocol = _turn_boundary_protocol(
             context.language,
             activity_mode,
-            quiz_answered_count=int(context.config_overrides.get("quiz_answered_count") or 0),
-            quiz_question_count=int(context.config_overrides.get("quiz_question_count") or 3),
+            quiz_answered_count=quiz_answered_count,
+            quiz_question_count=quiz_question_count,
         )
         context.persona_context = "\n\n".join(
             part
