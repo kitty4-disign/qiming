@@ -156,6 +156,34 @@ async def test_k12_reply_waits_for_terminal_and_preserves_session_context() -> N
 
 
 @pytest.mark.asyncio
+async def test_duplicate_quiz_card_does_not_start_second_follow_up() -> None:
+    preferences = {
+        "capability_config": {
+            "course_id": "course-1",
+            "mastery_path_id": "path-1",
+            "activity_mode": "quiz",
+            "quiz_question_count": 3,
+            "quiz_answered_count": 1,
+            "quiz_last_answered_turn_id": "turn-1",
+        }
+    }
+    runtime = _FakeRuntime(
+        _FakeStore(statuses=["completed"], preferences=preferences)
+    )
+
+    follow_up = await continue_k12_reply(
+        runtime,
+        "turn-1",
+        text="B",
+        answers=None,
+        timeout_seconds=0.01,
+    )
+
+    assert follow_up is False
+    assert runtime.started_payload is None
+
+
+@pytest.mark.asyncio
 async def test_installed_wrapper_returns_new_turn_id_for_k12() -> None:
     runtime = _FakeRuntime(_FakeStore(statuses=["completed"]))
     install_k12_continuation(runtime)
