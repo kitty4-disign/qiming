@@ -11,11 +11,21 @@ from __future__ import annotations
 import json
 from typing import Any
 
+_K12_ACTIVITY_MODES = frozenset({"lesson", "quiz", "coding"})
+
 
 class _K12PrematureFinish(RuntimeError):
     def __init__(self, raw_text: str) -> None:
         super().__init__("k12_premature_toolless_finish")
         self.raw_text = raw_text
+
+
+def _is_managed_k12_turn(context: Any) -> bool:
+    metadata = getattr(context, "metadata", {}) or {}
+    return bool(
+        metadata.get("ask_user_turn_boundary")
+        and str(metadata.get("education_activity_mode") or "") in _K12_ACTIVITY_MODES
+    )
 
 
 def _json_payload(content: Any) -> Any:
@@ -25,7 +35,7 @@ def _json_payload(content: Any) -> Any:
         return None
     try:
         return json.loads(content)
-    except (TypeError, ValueError, json.JSONDecodeError):
+    except (TypeError, ValueError):
         return None
 
 
@@ -63,11 +73,11 @@ def _tool_payloads(messages: list[dict[str, Any]]) -> list[Any]:
 
 
 def k12_finish_is_allowed(context: Any, messages: list[dict[str, Any]]) -> bool:
-    """Whether a K12 turn may legitimately finish without ``ask_user``."""
-    metadata = getattr(context, "metadata", {}) or {}
-    if not metadata.get("ask_user_turn_boundary"):
+    """Whether a managed K12 turn may legitimately finish without ``ask_user``."""
+    if not _is_managed_k12_turn(context):
         return True
 
+    metadata = getattr(context, "metadata", {}) or {}
     payloads = _tool_payloads(messages)
     activity_mode = str(metadata.get("education_activity_mode") or "")
     if activity_mode == "quiz" and metadata.get("education_quiz_limit_reached"):
@@ -109,7 +119,7 @@ def install_k12_finish_guard(agent_loop_module: Any) -> None:
     async def _guarded_finalize(self: Any, raw_text: str):
         if (
             getattr(self, "_k12_finish_guard_active", False)
-            and (getattr(self.context, "metadata", {}) or {}).get("ask_user_turn_boundary")
+            and _is_managed_k12_turn(self.context)
             and not getattr(self, "_k12_finish_guard_bypass", False)
         ):
             raise _K12PrematureFinish(raw_text)
@@ -122,7 +132,7 @@ def install_k12_finish_guard(agent_loop_module: Any) -> None:
         state: Any,
         checkpoint_boundary: int,
     ):
-        if not (getattr(self.context, "metadata", {}) or {}).get("ask_user_turn_boundary"):
+        if not _is_managed_k12_turn(self.context):
             return await original_run_loop(
                 self,
                 messages=messages,
