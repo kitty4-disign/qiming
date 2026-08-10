@@ -26,7 +26,7 @@ def _teaching_decision_protocol(language: str, decision: TeachingDecision) -> st
             f"- 活动：{decision.activity}\n"
             f"- 难度级别：{decision.difficulty}/4；解释深度：{decision.explanation_depth}/4\n"
             f"- 提示强度：{decision.hint_level}\n"
-            f"- 建议本轮问题预算：{decision.question_count}\n"
+            f"- 当前活动问题预算：{decision.question_count}\n"
             f"- 可使用代码教学：{'是' if decision.use_code else '否'}；"
             f"可使用可视化：{'是' if decision.use_visualization else '否'}\n"
             f"- 当前策略知识点：{decision.knowledge_point_id or '按 mastery_status 决定'}\n"
@@ -38,7 +38,7 @@ def _teaching_decision_protocol(language: str, decision: TeachingDecision) -> st
         f"- activity: {decision.activity}\n"
         f"- difficulty: {decision.difficulty}/4; explanation depth: {decision.explanation_depth}/4\n"
         f"- hint level: {decision.hint_level}\n"
-        f"- suggested question budget: {decision.question_count}\n"
+        f"- current activity question budget: {decision.question_count}\n"
         f"- code teaching allowed: {decision.use_code}; visualization allowed: {decision.use_visualization}\n"
         f"- policy knowledge point: {decision.knowledge_point_id or 'follow mastery_status'}\n"
         f"- reason codes: {reasons}\n"
@@ -194,12 +194,15 @@ class K12TutorCapability(BaseCapability):
             progress=progress,
             allowed_modalities=list(course.recommended_actions),
         )
+        context.metadata["education_policy_decision"] = policy_decision.model_dump(mode="json")
         # The learner explicitly chose this activity in the dashboard. Policy
-        # controls how it is taught, while the explicit launch controls what
-        # activity is being run. Exact quiz length is also a product contract.
-        policy_updates: dict[str, object] = {"activity": activity_mode}
-        if activity_mode == "quiz":
-            policy_updates["question_count"] = quiz_question_count
+        # controls *how* it is taught; the launch controls *what* is being run.
+        # One K12 turn may expose exactly one ask_user card, while a quiz run has
+        # its separate persistent total (three by default).
+        policy_updates: dict[str, object] = {
+            "activity": activity_mode,
+            "question_count": quiz_question_count if activity_mode == "quiz" else 1,
+        }
         effective_decision = policy_decision.model_copy(update=policy_updates)
         context.metadata["education_teaching_decision"] = effective_decision.model_dump(
             mode="json"
