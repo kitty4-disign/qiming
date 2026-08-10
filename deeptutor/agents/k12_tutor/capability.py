@@ -16,6 +16,47 @@ def _profile_service() -> EducationProfileService:
     return EducationProfileService()
 
 
+def _turn_boundary_protocol(language: str, activity_mode: str) -> str:
+    """Hard protocol appended after normal guidance so turn semantics win."""
+    zh = str(language).lower().startswith("zh")
+    if zh:
+        common = (
+            "K12 跨轮次协议（硬性要求，优先级高于上方活动说明）：\n"
+            "- ask_user 是当前 turn 的终点；调用 ask_user 后绝不能在同一 turn 中继续 mastery_grade。\n"
+            "- 每个新 turn 都必须先调用 mastery_status。若状态显示有 pending answer，必须先用 "
+            "mastery_grade 批改学习者刚提交的答案，再解释反馈。\n"
+            "- 除非 mastery_status / mastery_grade 返回的 next.action 明确为 complete，否则反馈后不能"
+            "直接用无工具文本结束；必须继续一个最小教学步骤，并最终用恰好一个 ask_user 问题结束 turn。\n"
+            "- 不得让学习者输入“继续”才能恢复正常教学；只要课程未完成，本轮就要主动推进到下一个"
+            "可回答的问题。\n"
+        )
+        if activity_mode == "quiz":
+            return common + (
+                "测验模式额外要求：若没有 pending answer，先 mastery_quiz 注册恰好一道题，再 ask_user；"
+                "若刚完成 mastery_grade 且课程未完成，则给即时反馈后注册下一道题并 ask_user。"
+            )
+        return common
+
+    common = (
+        "K12 cross-turn protocol (hard requirement; overrides conflicting activity text above):\n"
+        "- ask_user ENDS the current turn. Never call mastery_grade after ask_user in the same turn.\n"
+        "- Every new turn starts with mastery_status. If it reports a pending answer, call mastery_grade "
+        "first to grade the learner's submitted answer, then explain the feedback.\n"
+        "- Unless mastery_status/mastery_grade explicitly returns next.action == complete, do not end "
+        "with tool-less feedback. Continue one minimal teaching step and finish the turn with exactly one "
+        "ask_user question.\n"
+        "- Never require the learner to type 'continue' to resume normal teaching; while the course is "
+        "incomplete, proactively advance to the next answerable question.\n"
+    )
+    if activity_mode == "quiz":
+        return common + (
+            "Quiz mode: when there is no pending answer, register exactly one question with mastery_quiz "
+            "then ask_user; after mastery_grade, if the course is incomplete, give immediate feedback, "
+            "register the next question, and end with ask_user."
+        )
+    return common
+
+
 class K12TutorCapability(BaseCapability):
     manifest = CapabilityManifest(
         name="k12_tutor",
@@ -101,7 +142,14 @@ class K12TutorCapability(BaseCapability):
                 target_knowledge_point.id if target_knowledge_point else ""
             ),
         )
+        boundary_protocol = _turn_boundary_protocol(context.language, activity_mode)
         context.persona_context = "\n\n".join(
-            part for part in (context.persona_context.strip(), guidance) if part
+            part
+            for part in (
+                context.persona_context.strip(),
+                guidance,
+                boundary_protocol,
+            )
+            if part
         )
         await AgenticChatPipeline(language=context.language).run(context, stream)
