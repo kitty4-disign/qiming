@@ -84,11 +84,24 @@ function k12Config(
   intent: EducationLaunchIntent,
   activityMode: "lesson" | "quiz" | "coding" = "lesson",
 ): Record<string, unknown> {
-  return {
+  const base: Record<string, unknown> = {
     course_id: intent.courseId,
     mastery_path_id: intent.masteryPathId,
     activity_mode: activityMode,
   };
+  if (activityMode === "quiz") {
+    return {
+      ...base,
+      // createdAt is unique for each dashboard launch and remains stable for
+      // the full multi-turn quiz. The backend persists the counters in the
+      // K12 capability config, so reload/follow-up turns keep the same run.
+      quiz_run_id: String(intent.createdAt),
+      quiz_question_count: 3,
+      quiz_answered_count: 0,
+      quiz_last_answered_turn_id: "",
+    };
+  }
+  return base;
 }
 
 function stageLine(intent: EducationLaunchIntent): string {
@@ -122,11 +135,12 @@ function assembleQuizDraft(intent: EducationLaunchIntent): string {
   const difficulty = QUIZ_DIFFICULTY[intent.stage];
   const kp = intent.knowledgePointId ? `知识点：${intent.knowledgePointId}。` : "";
   return [
-    `请围绕“${intent.topic}”出一道适合当前学习阶段的趣味测验。`,
+    `请围绕“${intent.topic}”开始一轮 3 题趣味测验。`,
     stageLine(intent),
     kp,
     `难度定位：${difficulty}`,
-    "先读我的掌握度，再出一道题让我回答。",
+    "先读我的掌握度，再出第 1 题让我回答；每次只展示一题。",
+    "每次提交后先判分和反馈，再进入下一题；第 3 题反馈后给出本轮总结并结束，不出第 4 题。",
     "不要提前把标准答案发到浏览器；提交后再显示正误、错误位置、原因和下一步。",
   ].join("\n");
 }
