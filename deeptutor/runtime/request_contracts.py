@@ -84,6 +84,21 @@ class K12TutorRequestConfig(BaseModel):
     # by the capability and injected into the tutor guidance so the model
     # follows the right mastery flow without guessing.
     activity_mode: Literal["lesson", "quiz", "coding"] = "lesson"
+    # A dashboard launch gets a stable run id (currently the launch timestamp).
+    # The following counters are carried in capability_config so the K12
+    # turn-boundary continuation persists them automatically across fresh
+    # turns. This turns "three quiz questions" from a prompt convention into
+    # explicit server-visible state.
+    quiz_run_id: str = Field(default="", max_length=80, pattern=r"^[A-Za-z0-9_-]*$")
+    quiz_question_count: int = Field(default=3, ge=1, le=10)
+    quiz_answered_count: int = Field(default=0, ge=0, le=10)
+    quiz_last_answered_turn_id: str = Field(default="", max_length=180)
+
+    @model_validator(mode="after")
+    def validate_quiz_state(self) -> "K12TutorRequestConfig":
+        if self.quiz_answered_count > self.quiz_question_count:
+            raise ValueError("quiz_answered_count cannot exceed quiz_question_count")
+        return self
 
 
 class EducationRequestContext(BaseModel):
