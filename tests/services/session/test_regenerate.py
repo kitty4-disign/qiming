@@ -139,6 +139,7 @@ def _seed_session(
     user_content: str = "what is 2+2?",
     assistant_content: str | None = "4",
     user_metadata: dict[str, Any] | None = None,
+    capability: str = "chat",
 ) -> tuple[str, int, int | None]:
     """Create a session with a user (and optional assistant) message."""
     session = asyncio.run(store.create_session())
@@ -147,7 +148,7 @@ def _seed_session(
         store.update_session_preferences(
             sid,
             {
-                "capability": "chat",
+                "capability": capability,
                 "tools": ["rag"],
                 "knowledge_bases": ["kb1"],
                 "language": "en",
@@ -159,7 +160,7 @@ def _seed_session(
             sid,
             role="user",
             content=user_content,
-            capability="chat",
+            capability=capability,
             attachments=[{"type": "file", "filename": "a.pdf"}],
             metadata=user_metadata,
         )
@@ -223,6 +224,46 @@ class TestRegenerateLastTurn:
         assert recorder.calls[0]["book_references"] == [
             {"book_id": "book-1", "page_ids": ["page-1"]}
         ]
+
+    def test_replays_k12_config_and_education_context(self, store: SQLiteSessionStore) -> None:
+        sid, _, _ = _seed_session(
+            store,
+            capability="k12_tutor",
+            user_metadata={
+                "request_snapshot": {
+                    "config": {
+                        "course_id": "image-recognition",
+                        "mastery_path_id": (
+                            "edu_k12_ai_primary_upper_image_recognition"
+                        ),
+                        "activity_mode": "quiz",
+                    },
+                    "educationContext": {
+                        "stage": "primary_upper",
+                        "grade": 5,
+                        "knowledge_point_id": (
+                            "edu_k12_ai_primary_upper_image_recognition_m0_kp0"
+                        ),
+                    },
+                }
+            },
+        )
+        runtime = TurnRuntimeManager(store=store)
+        recorder = _FakeStartTurnRecorder()
+
+        with patch.object(runtime, "start_turn", new=recorder):
+            asyncio.run(runtime.regenerate_last_turn(sid))
+
+        payload = recorder.calls[0]
+        assert payload["config"]["course_id"] == "image-recognition"
+        assert payload["config"]["activity_mode"] == "quiz"
+        assert payload["education_context"] == {
+            "stage": "primary_upper",
+            "grade": 5,
+            "knowledge_point_id": (
+                "edu_k12_ai_primary_upper_image_recognition_m0_kp0"
+            ),
+        }
 
     def test_user_tail_is_kept_and_no_delete(self, store: SQLiteSessionStore) -> None:
         sid, user_id, _ = _seed_session(store, assistant_content=None)
@@ -392,3 +433,81 @@ class TestRegenerateLastTurn:
         # Runtime flags must still be set even when overrides supply config.
         assert payload["config"]["_persist_user_message"] is False
         assert payload["config"]["_regenerate"] is True
+
+
+@pytest.mark.asyncio
+async def test_k12_session_restores_config_and_education_context(
+    monkeypatch: pytest.MonkeyPatch,
+    store: SQLiteSessionStore,
+) -> None:
+    runtime = TurnRuntimeManager(store=store)
+
+    async def hold_turn(_execution) -> None:
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(runtime, "_run_turn", hold_turn)
+    session = await store.create_session()
+    config = {
+        "course_id": "image-recognition",
+        "mastery_path_id": "edu_k12_ai_primary_upper_image_recognition",
+        "activity_mode": "lesson",
+    }
+    education_context = {
+        "stage": "primary_upper",
+        "grade": 5,
+        "knowledge_point_id": "edu_k12_ai_primary_upper_image_recognition_m0_kp0",
+    }
+    _, first_turn = await runtime.start_turn(
+        {
+            "session_id": session["id"],
+            "content": "start",
+            "capability": "k12_tutor",
+            "tools": [],
+            "knowledge_bases": [],
+            "config": config,
+            "education_context": education_context,
+        }
+    )
+    preferences = (await store.get_session(session["id"]))["preferences"]
+    assert preferences["capability_config"] == config
+    assert preferences["education_context"] == education_context
+    await runtime.cancel_turn(first_turn["id"])
+
+    _, second_turn = await runtime.start_turn(
+        {
+            "session_id": session["id"],
+            "content": "continue",
+            "capability": "k12_tutor",
+            "tools": [],
+            "knowledge_bases": [],
+        }
+    )
+    execution = runtime._executions[second_turn["id"]]
+    assert execution.payload["config"] == config
+    assert execution.payload["education_context"] == education_context
+    await runtime.cancel_turn(second_turn["id"])
+
+    _, third_turn = await runtime.start_turn(
+        {
+            "session_id": session["id"],
+            "content": "switch target",
+            "capability": "k12_tutor",
+            "tools": [],
+            "knowledge_bases": [],
+            "config": {
+                "activity_mode": "quiz",
+                "subagent_consult_budget": 2,
+            },
+            "education_context": None,
+        }
+    )
+    execution = runtime._executions[third_turn["id"]]
+    assert execution.payload["config"] == {
+        **config,
+        "activity_mode": "quiz",
+        "subagent_consult_budget": 2,
+    }
+    assert execution.payload["education_context"] is None
+    preferences = (await store.get_session(session["id"]))["preferences"]
+    assert preferences["education_context"] is None
+    await runtime.cancel_turn(third_turn["id"])

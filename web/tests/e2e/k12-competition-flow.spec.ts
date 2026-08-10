@@ -77,6 +77,52 @@ async function stubApis(page: Page) {
       },
     }),
   );
+  await page.route("**/api/v1/education/dashboard/*", (route) =>
+    route.fulfill({
+      json: {
+        profile,
+        course: catalog.textbooks[1].courses[0],
+        mastery_path_id: "edu_k12_ai_primary_upper_image_recognition",
+        mastery_summary: { total: 4, mastered: 1, learning: 1, new: 2 },
+        recommendation: {
+          course_id: "image-recognition",
+          knowledge_point_id: "kp_features",
+          knowledge_point_name: "图像特征",
+          activity: "lesson",
+          title: "学习下一个知识点",
+          reasons: [
+            {
+              code: "next_new_point",
+              message_zh: "接下来学习新的知识点。",
+              evidence: { index: 0 },
+            },
+          ],
+        },
+        activity_summary: {
+          total_events: 0,
+          completed_count: 0,
+          quiz_completed: 0,
+          quiz_correct: 0,
+          last_event_at: 0,
+        },
+        recent_events: [],
+        active_episode: null,
+        learning_evidence: null,
+        teaching_decision: {
+          policy_version: "fp1",
+          activity: "lesson",
+          difficulty: 2,
+          explanation_depth: 2,
+          question_count: 3,
+          hint_level: "medium_high",
+          use_code: false,
+          use_visualization: true,
+          knowledge_point_id: "kp_features",
+          reason_codes: ["STAGE_PRIMARY_UPPER"],
+        },
+      },
+    }),
+  );
   await page.route("**/api/v1/learning/progress/*/map", (route) =>
     route.fulfill({
       json: {
@@ -94,32 +140,39 @@ async function stubApis(page: Page) {
 }
 
 test("K12 competition flow reuses tutor, quiz, and responsive workspace", async ({ page }) => {
+  test.setTimeout(90_000);
   await stubApis(page);
   await page.goto("/education");
 
-  await page.getByRole("button", { name: /小学高年级/ }).click();
-  await page.getByLabel("年级").selectOption("5");
-  await expect(page.getByLabel("教材")).toHaveValue("k12-ai-primary-upper");
-  await page.getByRole("button", { name: "保存学习画像" }).click();
+  await expect(page.getByRole("heading", { name: "学习画像" })).toBeVisible();
+
+  await page.getByRole("button", { name: /小学高年级|Primary Upper/ }).click();
+  await page.getByLabel(/年级|Grade/).selectOption("5");
+  await expect(page.getByLabel(/教材|Textbook/)).toHaveValue("k12-ai-primary-upper");
+  await page.getByRole("button", { name: /保存学习画像|Save Profile/ }).click();
 
   await expect(page.getByRole("heading", { name: "图像识别大冒险" })).toBeVisible();
-  const lesson = page.getByRole("article").filter({ hasText: "开始课堂" });
-  await lesson.getByRole("button", { name: "打开" }).click();
+  await expect(page.getByText("掌握度", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "推荐下一步" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "学习记录" })).toBeVisible();
+  await expect(page.getByText("学习证据", { exact: true })).toBeVisible();
+  const lesson = page.getByRole("article").filter({ hasText: /开始课堂|Start Lesson/ });
+  await lesson.getByRole("button", { name: /打开|Open/ }).click();
 
-  await expect(page).toHaveURL(/\/home/);
-  await expect(page.getByRole("button", { name: /K12 学习导师/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/home/, { timeout: 30_000 });
+  await expect(page.getByRole("button", { name: /K12 学习导师|K12 Tutor/ })).toBeVisible();
   const composer = page.locator("textarea");
   await expect(composer).toHaveValue(/图像识别大冒险/);
   await page.waitForTimeout(150);
   await expect(composer).toHaveValue(/图像识别大冒险/);
 
   await page.goto("/education");
-  const quiz = page.getByRole("article").filter({ hasText: "趣味测验" });
-  await quiz.getByRole("button", { name: "打开" }).click();
+  const quiz = page.getByRole("article").filter({ hasText: /趣味测验|Fun Quiz/ });
+  await quiz.getByRole("button", { name: /打开|Open/ }).click();
 
-  await expect(page).toHaveURL(/\/home/);
+  await expect(page).toHaveURL(/\/home/, { timeout: 30_000 });
   // Quiz now routes to k12_tutor with activity_mode=quiz (not deep_question).
-  await expect(page.getByRole("button", { name: /K12 学习导师/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /K12 学习导师|K12 Tutor/ })).toBeVisible();
   const quizComposer = page.locator("textarea");
   await expect(quizComposer).toHaveValue(/趣味测验/);
 

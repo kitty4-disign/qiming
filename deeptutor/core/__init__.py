@@ -1,7 +1,7 @@
 """Core contracts shared across runtime, tools, and capabilities."""
 
 from .capability_protocol import BaseCapability, CapabilityManifest
-from .context import Attachment, UnifiedContext
+from .context import Attachment, EducationContext, UnifiedContext
 from .stream import StreamEvent, StreamEventType
 from .stream_bus import StreamBus
 from .tool_protocol import (
@@ -31,4 +31,5 @@ __all__ = [
     "CapabilityManifest",
     "UnifiedContext",
     "Attachment",
+    "EducationContext",
 ]

@@ -54,11 +54,15 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
-import resource
 import subprocess
 import sys
 import traceback
 from typing import Any
+
+try:
+    import resource
+except ImportError:  # pragma: no cover - Windows: resource is POSIX-only
+    resource = None  # type: ignore[assignment]
 
 # Port to listen on inside the container; overridable for local testing.
 DEFAULT_PORT = 8900
@@ -209,6 +213,15 @@ def execute(payload: dict[str, Any]) -> dict[str, Any]:
     cpu_seconds = _int(limits.get("cpu_seconds"), _DEFAULT_CPU_SECONDS)
     max_output_chars = _int(limits.get("max_output_chars"), _DEFAULT_MAX_OUTPUT_CHARS)
 
+    if not _POSIX or resource is None:
+        # The runner ships in a Linux container and applies its resource
+        # ceilings via ``resource.setrlimit``. Running the command without
+        # them would silently drop the memory/CPU sandbox, so refuse.
+        return _error_result(
+            "sandbox runner requires a POSIX platform with resource limits "
+            "(unsupported on Windows)"
+        )
+
     preexec_fn = _build_preexec_fn(memory_mb, cpu_seconds)
 
     try:
@@ -335,6 +348,11 @@ class _Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     """Start the threaded HTTP server, binding 0.0.0.0:$RUNNER_PORT."""
+    if not _POSIX or resource is None:
+        sys.stderr.write(
+            "sandbox runner requires POSIX resource limits; refusing to serve on Windows\n"
+        )
+        sys.exit(2)
     try:
         port = int(os.environ.get("RUNNER_PORT", "") or DEFAULT_PORT)
     except ValueError:

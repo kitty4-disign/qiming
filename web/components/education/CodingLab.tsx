@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
+  educationErrorKey,
   getCodingHint,
   getCodingTask,
   runStudentCode,
@@ -39,7 +40,7 @@ export function CodingLab({ taskId, courseId, masteryPathId }: CodingLabProps) {
         setSource(data.starter_code);
       })
       .catch((reason) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
+        if (!cancelled) setError(t(educationErrorKey(reason)));
       });
     return () => {
       cancelled = true;
@@ -74,7 +75,7 @@ export function CodingLab({ taskId, courseId, masteryPathId }: CodingLabProps) {
         });
       }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(t(educationErrorKey(reason)));
     } finally {
       setLoading(false);
     }
@@ -87,7 +88,7 @@ export function CodingLab({ taskId, courseId, masteryPathId }: CodingLabProps) {
       setHint(text);
       setHintAttempt((n) => n + 1);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(t(educationErrorKey(reason)));
     }
   }, [hintAttempt, taskId]);
 

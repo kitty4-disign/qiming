@@ -201,6 +201,7 @@ def _request_snapshot_metadata(
     content: str,
     capability: str,
     config: dict[str, Any],
+    education_context: dict[str, Any] | None,
     attachments: list[dict[str, Any]],
     notebook_references: list[Any],
     history_references: list[Any],
@@ -222,6 +223,8 @@ def _request_snapshot_metadata(
         snapshot["attachments"] = attachments
     if config:
         snapshot["config"] = dict(config)
+    if education_context:
+        snapshot["educationContext"] = dict(education_context)
     if notebook_references:
         snapshot["notebookReferences"] = notebook_references
     if history_references:
@@ -683,16 +686,37 @@ class TurnRuntimeManager:
         runtime_only_config = {
             key: raw_config.pop(key) for key in runtime_only_keys if key in raw_config
         }
+        existing_preferences: dict[str, Any] = {}
+        if capability == "k12_tutor":
+            requested_session_id = str(payload.get("session_id") or "").strip()
+            if requested_session_id:
+                existing_session = await self.store.get_session(requested_session_id)
+                existing_preferences = (existing_session or {}).get("preferences") or {}
+            raw_config = {
+                **dict(existing_preferences.get("capability_config") or {}),
+                **raw_config,
+            }
+        education_context_explicit = "education_context" in payload
+        raw_education_context = payload.get("education_context")
+        if capability == "k12_tutor" and not education_context_explicit:
+            raw_education_context = existing_preferences.get("education_context")
         try:
-            from deeptutor.runtime.request_contracts import validate_capability_config
+            from deeptutor.runtime.request_contracts import (
+                validate_capability_config,
+                validate_education_request_context,
+            )
 
             validated_public_config = validate_capability_config(capability, raw_config)
+            education_context = validate_education_request_context(
+                raw_education_context
+            )
         except ValueError as exc:
             raise RuntimeError(str(exc)) from exc
         payload = {
             **payload,
             "capability": capability,
             "config": {**validated_public_config, **runtime_only_config},
+            "education_context": education_context,
         }
         session = await self.store.ensure_session(payload.get("session_id"))
         preferences = session.get("preferences") or {}
@@ -802,8 +826,21 @@ class TurnRuntimeManager:
         if persona_explicit:
             # Persist explicit set AND explicit clear ("" = back to Default).
             preference_update["persona"] = persona_pref
+        if capability == "k12_tutor":
+            preference_update["capability_config"] = dict(validated_public_config)
+            if education_context:
+                preference_update["education_context"] = dict(education_context)
+            elif education_context_explicit:
+                preference_update["education_context"] = None
         await self.store.update_session_preferences(session["id"], preference_update)
         turn = await self.store.create_turn(session["id"], capability=capability)
+        if capability == "k12_tutor":
+            # Turn boundary: a new K12 turn typically carries the learner's
+            # answer to the previous turn's ask_user card. Mark that card
+            # resolved so the UI flips it to the answered state (and reloads
+            # replay the same), while the pending question stays persisted for
+            # mastery_grade to score on this turn.
+            await self._mark_previous_k12_ask_user_resolved(session["id"])
         execution = _TurnExecution(
             turn_id=turn["id"],
             session_id=session["id"],
@@ -900,7 +937,12 @@ class TurnRuntimeManager:
         )
         language = str(overrides.get("language") or preferences.get("language") or "en")
 
-        config: dict[str, Any] = dict(overrides.get("config") or {})
+        config_source = (
+            overrides.get("config")
+            if overrides.get("config") is not None
+            else snapshot.get("config")
+        )
+        config: dict[str, Any] = dict(config_source or {})
         config.update(
             {
                 "_persist_user_message": False,
@@ -939,6 +981,11 @@ class TurnRuntimeManager:
                 if overrides.get("book_references") is not None
                 else snapshot.get("bookReferences") or []
             ),
+            "education_context": (
+                overrides["education_context"]
+                if "education_context" in overrides
+                else snapshot.get("educationContext")
+            ),
             "config": config,
         }
         if llm_selection:
@@ -969,12 +1016,13 @@ class TurnRuntimeManager:
         text: str | None = None,
         *,
         answers: list[dict[str, Any]] | None = None,
-    ) -> bool:
+    ) -> str | bool:
         """Deliver a user reply to a turn that's paused on ``ask_user``.
 
-        Returns ``True`` if the turn was waiting and the reply was
-        accepted; ``False`` if no waiter is registered (turn finished,
-        was cancelled, or the model never asked).
+        Returns ``True`` when the reply was accepted by a live turn; the new
+        turn id when the reply started a follow-up K12 turn; ``False`` when no
+        waiter is registered (turn finished, was cancelled, or the model never
+        asked).
 
         Accepts either ``text`` (single free-form reply, legacy single-
         question shape) or ``answers`` (list of ``{questionId, text}``
@@ -984,13 +1032,156 @@ class TurnRuntimeManager:
         the pipeline's ``await waiter()`` call unblocks on the next
         event-loop tick and substitutes the reply into the matching
         ``role=tool`` message.
+
+        K12 turn boundary: the teaching turn ends at its ``ask_user`` card
+        (the loop never consumes the reply queue), so a reply arriving for a
+        *completed* K12 turn starts a NEW tutor turn carrying the answer —
+        ``mastery_status`` then reports it as ``answer_pending`` and the new
+        turn grades it with ``mastery_grade`` under a fresh round budget.
         """
-        queue = self._reply_queues.get(turn_id)
-        if queue is None:
+        turn = await self.store.get_turn(turn_id)
+        if turn is None:
             return False
-        payload: dict[str, Any] = {"text": text or "", "answers": answers}
-        await queue.put(payload)
-        return True
+        if str(turn.get("status") or "") == "running":
+            queue = self._reply_queues.get(turn_id)
+            if queue is None:
+                return False
+            payload: dict[str, Any] = {"text": text or "", "answers": answers}
+            await queue.put(payload)
+            return True
+        # Terminal turn: only a K12 follow-up makes sense here.
+        if str(turn.get("capability") or "") == "k12_tutor":
+            return await self._start_follow_up_turn(turn, text=text, answers=answers)
+        return False
+
+    def _flatten_reply_text(
+        self,
+        text: str | None,
+        answers: list[dict[str, Any]] | None,
+    ) -> str:
+        """Flatten an ask_user reply into the plain user content a follow-up
+        turn carries. Prefers structured answers, then the flat text."""
+        if answers:
+            parts = [
+                str(entry.get("text") or "").strip()
+                for entry in answers
+                if isinstance(entry, dict)
+            ]
+            parts = [part for part in parts if part]
+            if parts:
+                return " | ".join(parts)
+        return str(text or "").strip()
+
+    async def _start_follow_up_turn(
+        self,
+        original_turn: dict[str, Any],
+        *,
+        text: str | None,
+        answers: list[dict[str, Any]] | None,
+    ) -> str | bool:
+        """Start a NEW K12 tutor turn carrying the learner's answer.
+
+        The follow-up continues the same session, so ``start_turn`` inherits
+        the stored k12 preferences (course config, education context, tool
+        selection) from the session — a fresh turn means a fresh loop round
+        budget, while the mastery path (persisted under the same path id)
+        keeps the pending question / mastery levels intact.
+        """
+        session_id = str(original_turn.get("session_id") or "").strip()
+        if not session_id:
+            return False
+        content = self._flatten_reply_text(text, answers) or "(skipped)"
+        payload: dict[str, Any] = {
+            "session_id": session_id,
+            "capability": "k12_tutor",
+            "content": content,
+            # Empty config: start_turn merges the session's stored k12
+            # capability_config (course_id / mastery_path_id / activity_mode)
+            # and inherits education_context / tools / language preferences.
+            "config": {},
+        }
+        try:
+            _, turn = await self.start_turn(payload)
+        except RuntimeError:
+            logger.warning(
+                "Failed to start K12 follow-up turn for session %s", session_id, exc_info=True
+            )
+            return False
+        return turn["id"]
+
+    async def _mark_previous_k12_ask_user_resolved(self, session_id: str) -> None:
+        """Mark the previous K12 turn's ask_user card as resolved.
+
+        The turn-boundary model ends a tutor turn at its question card; the
+        learner's answer then starts a NEW turn. The old card stays
+        "interactive" in the UI until a ``progress`` event with
+        ``ask_user_resolved=true`` arrives — emit one (persisted, so reloads
+        replay it) for the most recent unresolved card in the session's last
+        assistant message. No-op when there is nothing to resolve.
+        """
+        last_message = await self.store.get_last_message(session_id)
+        if last_message is None or last_message.get("role") != "assistant":
+            return
+        events = last_message.get("events") or []
+        resolved_ids: set[str] = set()
+        last_card_id = ""
+        for event in events:
+            meta = event.get("metadata") or {}
+            if not isinstance(meta, dict):
+                continue
+            if event.get("type") == "progress" and meta.get("ask_user_resolved"):
+                card_id = str(meta.get("ask_user_tool_call_id") or "").strip()
+                if card_id:
+                    resolved_ids.add(card_id)
+            if event.get("type") == "tool_result":
+                tool_meta = meta.get("tool_metadata")
+                if isinstance(tool_meta, dict) and tool_meta.get("ask_user"):
+                    card_id = str(meta.get("tool_call_id") or "").strip()
+                    if card_id:
+                        last_card_id = card_id
+        if not last_card_id or last_card_id in resolved_ids:
+            return
+        turn_id = ""
+        for event in events:
+            event_turn = str((event or {}).get("turn_id") or "").strip()
+            if event_turn:
+                turn_id = event_turn
+                break
+        if not turn_id:
+            return
+        resolution = {
+            "type": "progress",
+            "source": "turn_runtime",
+            "stage": "",
+            "content": "",
+            "metadata": {
+                "trace_kind": "user_reply",
+                "ask_user_resolved": True,
+                "ask_user_tool_call_id": last_card_id,
+            },
+            "session_id": session_id,
+            "turn_id": turn_id,
+            "seq": 0,
+        }
+        try:
+            await self.store.append_turn_event(turn_id, resolution)
+        except Exception:
+            logger.warning(
+                "Failed to persist K12 ask_user resolution for turn %s", turn_id, exc_info=True
+            )
+        # Also append to the persisted assistant message's events so a page
+        # reload (which replays message events, not turn events) still shows
+        # the card as answered.
+        try:
+            message_id = last_message.get("id")
+            if isinstance(message_id, int):
+                await self.store.append_message_events(message_id, [resolution])
+        except Exception:
+            logger.warning(
+                "Failed to persist K12 ask_user resolution on message %s",
+                last_message.get("id"),
+                exc_info=True,
+            )
 
     async def subscribe_turn(
         self,
@@ -1201,7 +1392,11 @@ class TurnRuntimeManager:
         try:
             from deeptutor.agents.notebook import NotebookAnalysisAgent
             from deeptutor.book.context import build_book_context
-            from deeptutor.core.context import Attachment, UnifiedContext
+            from deeptutor.core.context import (
+                Attachment,
+                EducationContext,
+                UnifiedContext,
+            )
             from deeptutor.runtime.orchestrator import ChatOrchestrator
             from deeptutor.services.memory import get_memory_store
             from deeptutor.services.model_selection.runtime import (
@@ -1598,6 +1793,7 @@ class TurnRuntimeManager:
                         content=raw_user_content,
                         capability=capability_name,
                         config=request_config,
+                        education_context=payload.get("education_context"),
                         attachments=persisted_attachment_records,
                         notebook_references=notebook_references,
                         history_references=history_references,
@@ -1624,6 +1820,11 @@ class TurnRuntimeManager:
                 persona_context=persona_context,
                 skills_manifest=skills_manifest,
                 source_manifest=source_manifest_text,
+                education_context=(
+                    EducationContext(**payload["education_context"])
+                    if payload.get("education_context")
+                    else None
+                ),
                 metadata={
                     "conversation_summary": history_result.conversation_summary,
                     "conversation_context_text": conversation_context_text,
@@ -1829,7 +2030,28 @@ class TurnRuntimeManager:
             # Drop the reply queue first — any in-flight ``submit_user_reply``
             # that finds the queue gone will return ``False`` rather than
             # accumulating on a dead turn.
-            self._reply_queues.pop(turn_id, None)
+            reply_queue = self._reply_queues.pop(turn_id, None)
+            # K12 turn boundary: the agent loop ends the turn right after its
+            # ``ask_user`` card and never consumes this queue. If a reply
+            # slipped in during the shutdown window (user clicked while the
+            # turn was still finishing), forward the learner's answer to a
+            # follow-up turn instead of silently dropping it.
+            if (
+                reply_queue is not None
+                and stream_done_sent
+                and capability_name == "k12_tutor"
+            ):
+                try:
+                    pending_reply = reply_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pending_reply = None
+                if isinstance(pending_reply, dict):
+                    with contextlib.suppress(Exception):
+                        await self._start_follow_up_turn(
+                            {"id": turn_id, "session_id": session_id},
+                            text=pending_reply.get("text"),
+                            answers=pending_reply.get("answers"),
+                        )
             async with self._lock:
                 current = self._executions.get(turn_id)
                 if current is not None:

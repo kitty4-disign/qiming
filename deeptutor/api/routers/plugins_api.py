@@ -49,13 +49,16 @@ class ToolExecuteRequest(BaseModel):
 
 
 class CapabilityExecuteRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     content: str
     tools: list[str] = Field(default_factory=list, alias="enabledTools")
     knowledge_bases: list[str] = Field(default_factory=list, alias="knowledgeBases")
     language: str = "en"
     config: dict[str, Any] = Field(default_factory=dict)
+    education_context: dict[str, Any] | None = Field(
+        default=None, alias="educationContext"
+    )
     attachments: list[dict[str, Any]] = Field(default_factory=list)
     # ``bot_id`` is the legacy TutorBot field name; it now addresses a partner.
     partner_id: str | None = Field(default=None, alias="bot_id")
@@ -319,12 +322,23 @@ async def _execute_capability_stream(
             yield chunk
         return
 
-    from deeptutor.core.context import Attachment, UnifiedContext
+    from deeptutor.core.context import Attachment, EducationContext, UnifiedContext
     from deeptutor.runtime.orchestrator import ChatOrchestrator
+    from deeptutor.runtime.request_contracts import (
+        validate_capability_config,
+        validate_education_request_context,
+    )
 
     orch = ChatOrchestrator()
     if capability_name not in orch.list_capabilities():
         yield _sse("error", {"detail": f"Capability {capability_name!r} not found"})
+        return
+
+    try:
+        config = validate_capability_config(capability_name, body.config)
+        education_context = validate_education_request_context(body.education_context)
+    except ValueError as exc:
+        yield _sse("error", {"detail": str(exc)})
         return
 
     attachments = [
@@ -344,8 +358,11 @@ async def _execute_capability_stream(
         active_capability=capability_name,
         knowledge_bases=body.knowledge_bases,
         attachments=attachments,
-        config_overrides=body.config,
+        config_overrides=config,
         language=body.language,
+        education_context=(
+            EducationContext(**education_context) if education_context else None
+        ),
     )
 
     event_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()

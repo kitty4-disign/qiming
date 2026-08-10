@@ -13,7 +13,9 @@ judgements with model name and prompt recorded.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -35,20 +37,13 @@ def run_deterministic_tests() -> dict:
         text=True,
     )
     output = result.stdout + result.stderr
-    # Parse "73 passed" or "2 failed, 71 passed" from pytest summary line.
-    passed = 0
-    failed = 0
-    errors = 0
-    for line in output.splitlines():
-        if "passed" in line or "failed" in line or "error" in line:
-            for token in line.split():
-                if token.isdigit():
-                    if "failed" in line:
-                        failed = int(token)
-                    elif "error" in line:
-                        errors = int(token)
-                    elif "passed" in line:
-                        passed = int(token)
+    def count(label: str) -> int:
+        matches = re.findall(rf"(\d+)\s+{label}", output)
+        return int(matches[-1]) if matches else 0
+
+    passed = count("passed")
+    failed = count("failed")
+    errors = count("errors?")
     return {
         "type": "deterministic_automated",
         "tool": "pytest",
@@ -79,12 +74,23 @@ def evaluate_benchmarks() -> dict:
     if "error" in benchmarks:
         return benchmarks
 
+    if benchmarks.get("version") != 2:
+        return {"error": "benchmark fixture must use version 2"}
     per_stage: dict[str, dict] = {}
+    question_ids: set[str] = set()
+    integrity_issues: list[str] = []
     for entry in benchmarks.get("benchmarks", []):
         stage = entry["stage"]
         questions = entry.get("questions", [])
         categories = {}
         for q in questions:
+            if q.get("id") in question_ids:
+                integrity_issues.append(f"duplicate question id: {q.get('id')}")
+            question_ids.add(str(q.get("id") or ""))
+            if "retrieval_required" not in q or "expected_sources" not in q:
+                integrity_issues.append(f"{q.get('id')}: missing retrieval source contract")
+            if q.get("retrieval_required") and not q.get("expected_sources"):
+                integrity_issues.append(f"{q.get('id')}: retrieval requires expected_sources")
             cat = q["category"]
             categories[cat] = categories.get(cat, 0) + 1
         per_stage[stage] = {
@@ -108,13 +114,124 @@ def evaluate_benchmarks() -> dict:
             missing[stage] = list(missing_cats)
 
     return {
-        "type": "manual_spot_check",
+        "type": "deterministic_automated",
         "fixture_path": str(BENCHMARK_FIXTURE),
         "per_stage": per_stage,
         "expected_categories": sorted(expected_categories),
         "missing_categories_per_stage": missing,
+        "integrity_issues": integrity_issues,
+        "all_passed": not missing and not integrity_issues,
         "note": "Benchmark questions are human-verified; this script checks fixture integrity and coverage, not answer quality.",
     }
+
+
+def _source_name(source: dict) -> str:
+    for key in ("source", "file_path", "filename", "file_name", "title"):
+        value = str(source.get(key) or "").replace("\\", "/").strip()
+        if value:
+            return value.rsplit("/", 1)[-1].lower()
+    return ""
+
+
+def score_retrieval_cases(cases: list[dict], *, known_sources: set[str]) -> dict:
+    """Mechanically score retrieval provenance without an LLM judge."""
+    hits = 0
+    leaked = 0
+    traceable_rows = 0
+    source_rows = 0
+    fully_traceable = 0
+    details = []
+    for case in cases:
+        expected = {str(item).lower() for item in case["expected_sources"]}
+        observed = [item for item in case.get("observed_sources", []) if isinstance(item, dict)]
+        names = [_source_name(item) for item in observed]
+        hit = any(name in expected for name in names)
+        traces = [
+            bool(name) and bool(item.get("chunk_id") or item.get("id") or item.get("page"))
+            for name, item in zip(names, observed)
+        ]
+        leak = case.get("observed_kb") != case.get("expected_kb") or any(
+            not name or name not in known_sources or name not in expected for name in names
+        )
+        hits += int(hit)
+        leaked += int(leak)
+        source_rows += len(observed)
+        traceable_rows += sum(traces)
+        fully_traceable += int(bool(observed) and all(traces))
+        details.append({**case, "hit": hit, "fully_traceable": bool(observed) and all(traces), "leak": leak})
+    total = len(cases)
+    return {
+        "status": "completed",
+        "eligible_cases": total,
+        "completed_cases": total,
+        "retrieval_hit_rate": hits / total if total else 0.0,
+        "source_traceability_rate": traceable_rows / source_rows if source_rows else 0.0,
+        "fully_traceable_case_rate": fully_traceable / total if total else 0.0,
+        "wrong_course_leakage_rate": leaked / total if total else 0.0,
+        "cases": details,
+    }
+
+
+def evaluate_retrieval() -> dict:
+    """Run real K12 retrieval when every index is ready; otherwise report blocked."""
+    from deeptutor.education.knowledge_bootstrap import (
+        K12_KB_SOURCE_STEMS,
+        expected_k12_targets,
+        kb_base_dir,
+    )
+    from deeptutor.services.rag.factory import DEFAULT_PROVIDER
+    from deeptutor.services.rag.index_probe import has_ready_provider_index
+    from deeptutor.tools.rag_tool import rag_search
+
+    fixture = load_benchmarks()
+    targets = expected_k12_targets(ROOT)
+    base_dir = kb_base_dir(ROOT)
+    unavailable = [
+        target.name
+        for target in targets
+        if not has_ready_provider_index(base_dir / target.name, DEFAULT_PROVIDER)
+    ]
+    eligible = [
+        (entry, question)
+        for entry in fixture.get("benchmarks", [])
+        for question in entry.get("questions", [])
+        if question.get("retrieval_required")
+    ]
+    if unavailable:
+        return {
+            "type": "rag_automated",
+            "status": "blocked",
+            "reason": "K12 provider indexes are not ready",
+            "provider": DEFAULT_PROVIDER,
+            "eligible_cases": len(eligible),
+            "completed_cases": 0,
+            "unavailable_knowledge_bases": unavailable,
+        }
+
+    async def run_cases() -> list[dict]:
+        cases = []
+        for entry, question in eligible:
+            result = await rag_search(
+                query=question["question_zh"],
+                kb_name=entry["knowledge_base"],
+                kb_base_dir=str(base_dir),
+                provider=DEFAULT_PROVIDER,
+                top_k=5,
+            )
+            cases.append(
+                {
+                    "question_id": question["id"],
+                    "expected_kb": entry["knowledge_base"],
+                    "observed_kb": entry["knowledge_base"],
+                    "expected_sources": question["expected_sources"],
+                    "observed_sources": result.get("sources") or [],
+                }
+            )
+        return cases
+
+    known = {f"{stem}.md".lower() for stem in K12_KB_SOURCE_STEMS.values()}
+    scored = score_retrieval_cases(asyncio.run(run_cases()), known_sources=known)
+    return {"type": "rag_automated", "provider": DEFAULT_PROVIDER, **scored}
 
 
 def check_catalog_quality() -> dict:
@@ -162,38 +279,48 @@ def evaluate_llm_judge() -> dict:
 
 def main() -> int:
     REPORTS_DIR.mkdir(exist_ok=True)
+    retrieval = evaluate_retrieval()
+    unverified_items = [
+        "manual_factual_accuracy (requires human spot-check)",
+        "stage_blind_test (requires human reviewers)",
+    ]
+    if retrieval.get("status") != "completed":
+        unverified_items.extend(
+            [
+                "benchmark_retrieval_hit_rate (K12 indexes are not ready)",
+                "source_traceability_rate (K12 indexes are not ready)",
+                "wrong_course_leakage_rate (K12 indexes are not ready)",
+            ]
+        )
 
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "repository": "kitty4-disign/qiming",
         "branch": "feature/k12-competition-v2",
-        "milestone": "M4",
+        "milestone": "FP1-FP6",
         "sections": {
             "deterministic_tests": run_deterministic_tests(),
             "catalog_quality": check_catalog_quality(),
             "benchmark_coverage": evaluate_benchmarks(),
+            "rag_retrieval": retrieval,
             "llm_judge": evaluate_llm_judge(),
             "manual_spot_check": {
                 "type": "manual_spot_check",
                 "status": "pending_human_review",
-                "note": "Human reviewers must spot-check factual accuracy (>=95%), source traceability (100%), and stage blind-test differentiation.",
+                "note": "Human reviewers must spot-check factual accuracy (>=95%) and stage blind-test differentiation.",
                 "unverified": True,
             },
         },
         "quality_gates": {
             "stage_policy_deterministic": "100% required",
             "safety_redline": "100% required",
-            "benchmark_retrieval_hit_rate": ">=90% required (not yet automated)",
+            "benchmark_retrieval_hit_rate": ">=90% required (automated when indexes are ready)",
             "manual_factual_accuracy": ">=95% required (pending human review)",
-            "source_traceability": "100% required (not yet automated)",
+            "source_traceability": "100% required (automated when indexes are ready)",
+            "wrong_course_leakage": "0% required",
             "stage_blind_test": "reviewer must identify stage from expression/difficulty (pending human review)",
         },
-        "unverified_items": [
-            "benchmark_retrieval_hit_rate (requires RAG index)",
-            "manual_factual_accuracy (requires human spot-check)",
-            "source_traceability (requires RAG index)",
-            "stage_blind_test (requires human reviewers)",
-        ],
+        "unverified_items": unverified_items,
     }
 
     json_path = REPORTS_DIR / "k12-evaluation.json"
@@ -247,19 +374,40 @@ def main() -> int:
         for stage, cats in missing.items():
             lines.append(f"- {stage}: {', '.join(cats)}")
 
+    rag = report["sections"]["rag_retrieval"]
     lines += [
         "",
-        "## 4. LLM Judge（未运行）",
+        "## 4. RAG 来源追溯",
+        "",
+        f"- 状态: {rag.get('status')}",
+        f"- Provider: {rag.get('provider', 'N/A')}",
+        f"- 可评估题目: {rag.get('eligible_cases', 0)}",
+        f"- 已完成题目: {rag.get('completed_cases', 0)}",
+    ]
+    if rag.get("status") == "completed":
+        lines.extend(
+            [
+                f"- Retrieval hit rate: {rag.get('retrieval_hit_rate', 0):.1%}",
+                f"- Source traceability rate: {rag.get('source_traceability_rate', 0):.1%}",
+                f"- Wrong-course leakage rate: {rag.get('wrong_course_leakage_rate', 0):.1%}",
+            ]
+        )
+    else:
+        lines.append(f"- 阻塞原因: {rag.get('reason', 'unknown')}")
+
+    lines += [
+        "",
+        "## 5. LLM Judge（未运行）",
         "",
         f"- 状态: {report['sections']['llm_judge']['status']}",
         f"- 说明: {report['sections']['llm_judge']['reason']}",
         "",
-        "## 5. 人工抽查（待完成）",
+        "## 6. 人工抽查（待完成）",
         "",
         f"- 状态: {report['sections']['manual_spot_check']['status']}",
         f"- 说明: {report['sections']['manual_spot_check']['note']}",
         "",
-        "## 6. 质量门槛",
+        "## 7. 质量门槛",
         "",
     ]
     for gate, requirement in report["quality_gates"].items():
@@ -267,7 +415,7 @@ def main() -> int:
 
     lines += [
         "",
-        "## 7. 未验证项",
+        "## 8. 未验证项",
         "",
     ]
     for item in report["unverified_items"]:

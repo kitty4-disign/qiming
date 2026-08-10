@@ -11,11 +11,13 @@ from deeptutor.education.activity_models import (
 )
 from deeptutor.education.models import EducationStage, LearningModality, StudentProfile
 from deeptutor.learning.models import LearningProgress
+from deeptutor.learning.policy import due_reviews
 
 # Mastery below this threshold combined with recent wrong answers triggers a
 # weak-point recommendation.
 _WEAK_POINT_THRESHOLD = 0.6
-# A knowledge point counts as "mastered" at or above this level.
+# Recommendation progress remains a coarse dashboard signal; the authoritative
+# TeachingPolicy uses the per-type mastery gates in ``deeptutor.learning.policy``.
 _MASTERY_THRESHOLD = 0.7
 
 # Map the frontend launch modalities to EducationActivity values.  ``dialogue``
@@ -73,11 +75,10 @@ def _current_kp_id(progress: LearningProgress) -> str:
 
 
 def _find_next_unlearned_kp(progress: LearningProgress) -> str:
-    """First KP whose mastery is below the threshold, or the first un-touched KP."""
+    """First KP below the dashboard recommendation threshold."""
     for module in progress.modules:
         for kp in module.knowledge_points:
-            level = progress.mastery_levels.get(kp.id, 0.0)
-            if level < _MASTERY_THRESHOLD:
+            if progress.mastery_levels.get(kp.id, 0.0) < _MASTERY_THRESHOLD:
                 return kp.id
     return ""
 
@@ -91,14 +92,9 @@ def _has_recent_wrong(progress: LearningProgress, kp_id: str) -> bool:
 
 def _due_review_kp(progress: LearningProgress, now: float) -> str:
     """Return the highest-priority due review KP id, or empty."""
-    due = [
-        task
-        for task in progress.review_queue
-        if task.due_at <= now
-    ]
+    due = due_reviews(progress, now=now)
     if not due:
         return ""
-    due.sort(key=lambda t: (-t.priority, t.due_at))
     return due[0].knowledge_point_id
 
 
@@ -313,12 +309,11 @@ def summarize_mastery(progress: LearningProgress) -> dict[str, int | float]:
             mastered += 1
         elif kp_id in attempted_kp_ids or level > 0.0:
             learning += 1
-    new = len(kp_ids) - mastered - learning
     return {
         "total": len(kp_ids),
         "mastered": mastered,
         "learning": learning,
-        "new": new,
+        "new": len(kp_ids) - mastered - learning,
     }
 
 

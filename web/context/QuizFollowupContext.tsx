@@ -379,24 +379,11 @@ export function QuizFollowupProvider({ children }: ProviderProps) {
   );
 
   const sendThroughRunner = useCallback(
-    function send(key: string, message: ChatMessage, attempt = 0) {
+    function send(key: string, message: ChatMessage) {
       const runner = ensureRunner(key);
-      if (!runner.client.connected) {
-        if (attempt >= 10) {
-          updateThread(key, (prev) => ({
-            ...prev,
-            isStreaming: false,
-            currentStage: "",
-            error: "Follow-up chat failed to connect.",
-          }));
-          return;
-        }
-        window.setTimeout(() => send(key, message, attempt + 1), 200);
-        return;
-      }
       runner.client.send(message);
     },
-    [ensureRunner, updateThread],
+    [ensureRunner],
   );
 
   const sendMessage = useCallback(

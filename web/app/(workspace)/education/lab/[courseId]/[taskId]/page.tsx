@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CodingLab } from "@/components/education/CodingLab";
-import { getLaunchContext } from "@/lib/education-api";
+import { educationErrorKey, getLaunchContext } from "@/lib/education-api";
 
 export default function CodingLabPage({
   params,
@@ -23,7 +23,7 @@ export default function CodingLabPage({
         setMasteryPathId(ctx.mastery_path_id);
       })
       .catch((reason) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
+        if (!cancelled) setError(t(educationErrorKey(reason)));
       });
     return () => {
       cancelled = true;

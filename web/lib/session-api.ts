@@ -1,6 +1,10 @@
 import { apiFetch, apiUrl } from "@/lib/api";
 import { invalidateClientCache, withClientCache } from "@/lib/client-cache";
-import type { LLMSelection, StreamEvent } from "@/lib/unified-ws";
+import type {
+  EducationContext,
+  LLMSelection,
+  StreamEvent,
+} from "@/lib/unified-ws";
 
 export interface SessionMessage {
   id: number;
@@ -49,6 +53,8 @@ export interface SessionSummary {
     knowledge_bases?: string[];
     language?: string;
     llm_selection?: LLMSelection | null;
+    capability_config?: Record<string, unknown>;
+    education_context?: EducationContext;
     /** Session-level persona preference; "" / absent = Default (no persona). */
     persona?: string;
     /** Edit-branching: maps a parent_message_id → the child id currently
@@ -93,6 +99,8 @@ export interface SessionDetail {
     knowledge_bases?: string[];
     language?: string;
     llm_selection?: LLMSelection | null;
+    capability_config?: Record<string, unknown>;
+    education_context?: EducationContext;
     /** Session-level persona preference; "" / absent = Default (no persona). */
     persona?: string;
     /** Edit-branching: maps a parent_message_id → the child id currently

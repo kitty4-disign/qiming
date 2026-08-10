@@ -126,6 +126,7 @@ async def test_turn_runtime_replays_events_and_materializes_messages(
             captured["user_message"] = context.user_message
             captured["metadata"] = context.metadata
             captured["source_manifest"] = context.source_manifest
+            captured["education_context"] = context.education_context
             yield StreamEvent(
                 type=StreamEventType.CONTENT,
                 source="chat",
@@ -177,6 +178,11 @@ async def test_turn_runtime_replays_events_and_materializes_messages(
             "persona": "socratic",
             "memory_references": ["summary"],
             "book_references": [{"book_id": "book-1", "page_ids": ["page-1"]}],
+            "education_context": {
+                "stage": "primary_upper",
+                "grade": 5,
+                "knowledge_point_id": "path_m0_kp0",
+            },
             "config": {},
         }
     )
@@ -205,6 +211,15 @@ async def test_turn_runtime_replays_events_and_materializes_messages(
     assert detail["messages"][0]["metadata"]["request_snapshot"]["bookReferences"] == [
         {"book_id": "book-1", "page_ids": ["page-1"]}
     ]
+    assert detail["messages"][0]["metadata"]["request_snapshot"][
+        "educationContext"
+    ] == {
+        "stage": "primary_upper",
+        "grade": 5,
+        "knowledge_point_id": "path_m0_kp0",
+    }
+    assert captured["education_context"].stage == "primary_upper"
+    assert captured["education_context"].grade == 5
     # Chat capability now routes attached sources through the manifest +
     # ``read_source`` tool instead of inlining ``[Book Context]`` into the
     # user message. The raw user message stays raw; the book payload
@@ -911,3 +926,115 @@ async def test_turn_runtime_injects_memory_and_refreshes_after_completion(
     assert captured["memory_context"] == "## Memory\n## Preferences\n- Prefer concise answers."
     assert captured["conversation_history"] == []
     assert captured["conversation_context_text"] == "Recent chat summary"
+
+
+@pytest.mark.asyncio
+async def test_k12_submit_user_reply_starts_follow_up_turn_and_resolves_card(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """K12 turn boundary: a reply submitted for a COMPLETED K12 turn starts a
+    NEW turn carrying the answer (fresh round budget), and the previous turn's
+    ask_user card is marked resolved so the UI flips it to answered."""
+    store = SQLiteSessionStore(tmp_path / "chat_history.db")
+    runtime = TurnRuntimeManager(store)
+    captured: dict[str, object] = {}
+
+    class FakeContextBuilder:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        async def build(self, **_kwargs):
+            return SimpleNamespace(
+                conversation_history=[],
+                conversation_summary="",
+                context_text="",
+                token_count=0,
+                budget=0,
+            )
+
+    class FakeOrchestrator:
+        async def handle(self, context):
+            captured["user_message"] = context.user_message
+            if str(context.user_message or "").startswith("开始"):
+                # Question turn: ask_user card is the turn's final artefact.
+                yield StreamEvent(
+                    type=StreamEventType.TOOL_RESULT,
+                    source="chat",
+                    stage="responding",
+                    content="Asked the user.",
+                    metadata={
+                        "tool_call_id": "ask-1",
+                        "tool_name": "ask_user",
+                        "tool_metadata": {
+                            "ask_user": {
+                                "questions": [{"id": "q1", "prompt": "255 表示更亮还是更暗？"}]
+                            }
+                        },
+                    },
+                )
+                yield StreamEvent(type=StreamEventType.DONE, source="chat")
+                return
+            # Answer turn: normal completion.
+            yield StreamEvent(
+                type=StreamEventType.CONTENT,
+                source="chat",
+                stage="responding",
+                content="你答对了！",
+                metadata={"call_kind": "llm_final_response"},
+            )
+            yield StreamEvent(type=StreamEventType.DONE, source="chat")
+
+    monkeypatch.setattr("deeptutor.services.llm.config.get_llm_config", lambda: SimpleNamespace())
+    monkeypatch.setattr(
+        "deeptutor.services.session.context_builder.ContextBuilder", FakeContextBuilder
+    )
+    monkeypatch.setattr("deeptutor.runtime.orchestrator.ChatOrchestrator", FakeOrchestrator)
+    monkeypatch.setattr(
+        "deeptutor.services.memory.get_memory_store",
+        lambda: SimpleNamespace(read_l3_concat=lambda: "", emit=_noop_async),
+    )
+    monkeypatch.setattr("deeptutor.services.skill.get_skill_service", _fake_skill_service)
+    monkeypatch.setattr("deeptutor.services.persona.get_persona_service", _fake_persona_service)
+
+    _session, first_turn = await runtime.start_turn(
+        {
+            "type": "start_turn",
+            "content": "开始学习",
+            "session_id": None,
+            "capability": "k12_tutor",
+            "tools": [],
+            "knowledge_bases": [],
+            "attachments": [],
+            "language": "zh",
+            "config": {"course_id": "ai-literacy", "mastery_path_id": "path_1"},
+            "education_context": {"stage": "high", "grade": 10},
+        }
+    )
+    async for _event in runtime.subscribe_turn(first_turn["id"], after_seq=0):
+        pass
+    first_status = (await store.get_turn(first_turn["id"]) or {}).get("status")
+    assert first_status == "completed"
+
+    # The learner answers the card AFTER the turn ended.
+    result = await runtime.submit_user_reply(first_turn["id"], text="B")
+    assert isinstance(result, str) and result, "expected a follow-up turn id"
+
+    follow_up = await store.get_turn(result)
+    assert follow_up is not None
+    assert follow_up["capability"] == "k12_tutor"
+    async for _event in runtime.subscribe_turn(result, after_seq=0):
+        pass
+
+    # The follow-up turn's user message is the learner's answer.
+    assert captured["user_message"] == "B"
+    # The old turn's card was marked resolved (persisted for reloads).
+    old_events = await store.get_turn_events(first_turn["id"])
+    resolutions = [
+        e
+        for e in old_events
+        if e.get("type") == "progress"
+        and (e.get("metadata") or {}).get("ask_user_resolved") is True
+    ]
+    assert resolutions, "expected a persisted ask_user_resolved event"
+    assert resolutions[-1]["metadata"]["ask_user_tool_call_id"] == "ask-1"

@@ -523,6 +523,7 @@ function SpaceSubsection({
   count: number;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   const Icon = category.icon;
   return (
     <div>
@@ -536,7 +537,7 @@ function SpaceSubsection({
           className="shrink-0 text-[var(--muted-foreground)]"
         />
         <span className="flex-1 truncate text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[var(--muted-foreground)] transition-colors group-hover:text-[var(--primary)]">
-          {category.label}
+          {t(category.label)}
         </span>
         <span className="rounded-full bg-[var(--muted)]/55 px-1.5 py-[1px] text-[10px] font-semibold text-[var(--muted-foreground)]">
           {count}

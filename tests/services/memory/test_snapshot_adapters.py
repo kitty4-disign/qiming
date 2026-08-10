@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from deeptutor.partners.helpers import safe_filename
 from deeptutor.services.memory.snapshot import adapters
 
 
@@ -23,8 +24,13 @@ class _FakePathService:
 
 
 def _write_session(sessions_dir: Path, key: str, turns: list[tuple[str, str]]) -> None:
+    # Session files are named the way ``PartnerSessionStore._stem`` writes them
+    # (``safe_filename`` folds ``:``/``/`` to ``_``). Doing the same here keeps
+    # the fixtures Windows-safe — raw ``telegram:42.jsonl`` is unrepresentable
+    # on NTFS, where the colon introduces an alternate data stream.
+    stem = safe_filename(key).strip(".") or "default"
     sessions_dir.mkdir(parents=True, exist_ok=True)
-    with (sessions_dir / f"{key}.jsonl").open("w", encoding="utf-8") as fh:
+    with (sessions_dir / f"{stem}.jsonl").open("w", encoding="utf-8") as fh:
         for i, (role, content) in enumerate(turns):
             fh.write(
                 json.dumps(
@@ -59,7 +65,7 @@ def test_partner_sessions_become_tagged_entities(partner_tree: Path) -> None:
 
     assert len(entities) == 1
     ent = entities[0]
-    assert ent.id == "bot1:telegram:42"
+    assert ent.id == "bot1:telegram_42"
     # Partner tag lands in both the label and the metadata.
     assert "Math Tutor" in ent.label
     assert ent.metadata["partner_id"] == "bot1"

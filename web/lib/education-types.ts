@@ -100,6 +100,7 @@ export interface LearningEvent {
   activity: EducationActivity;
   event_type: ActivityEventType;
   knowledge_point_id: string;
+  episode_id: string;
   score: number | null;
   duration_seconds: number | null;
   idempotency_key: string;
@@ -127,7 +128,44 @@ export interface ActivityCompletion {
   activity: EducationActivity;
   event_type: ActivityEventType;
   knowledge_point_id: string;
+  episode_id?: string;
   score: number | null;
   duration_seconds: number | null;
   idempotency_key: string;
+}
+
+export interface LearningEpisode {
+  episode_id: string;
+  course_id: string;
+  mastery_path_id: string;
+  knowledge_point_id: string;
+  knowledge_point_name: string;
+  stage: EducationStage;
+  started_at: number;
+  ended_at: number | null;
+  pre_score: number;
+  post_score: number | null;
+  raw_gain: number | null;
+  normalized_gain: number | null;
+  initial_misconceptions: string[];
+  resolved_misconceptions: string[];
+  activities_used: EducationActivity[];
+  activity_reasons: string[];
+  mastery_before: number;
+  mastery_after: number | null;
+  source_ids: string[];
+  status: "active" | "completed" | "abandoned";
+}
+
+export interface TeachingDecision {
+  policy_version: string;
+  activity: EducationActivity;
+  difficulty: number;
+  explanation_depth: number;
+  question_count: number;
+  hint_level: string;
+  use_code: boolean;
+  use_visualization: boolean;
+  knowledge_point_id: string;
+  reason_codes: string[];
 }

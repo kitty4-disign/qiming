@@ -42,9 +42,10 @@ test("lesson launches K12 mastery tutor", () => {
     course_id: "image-recognition",
     mastery_path_id: "edu_k12_ai_primary_upper_image_recognition",
     activity_mode: "lesson",
+  });
+  assert.deepEqual(preset.educationContext, {
     stage: "primary_upper",
     grade: 5,
-    knowledge_point_id: "",
   });
   assert.match(preset.draft, /开始今天的学习/);
   assert.match(preset.draft, /学段：primary_upper/);
@@ -54,7 +55,7 @@ test("quiz routes to K12 tutor with activity_mode=quiz", () => {
   const preset = buildEducationComposerPreset(stageIntent("quiz", "middle"));
   assert.equal(preset.capability, "k12_tutor");
   assert.equal(preset.config.activity_mode, "quiz");
-  assert.equal(preset.config.stage, "middle");
+  assert.equal(preset.educationContext.stage, "middle");
   assert.match(preset.draft, /趣味测验/);
   assert.match(preset.draft, /难度定位/);
 });
@@ -108,15 +109,18 @@ test("coding scaffold differs by stage", () => {
   assert.match(drafts[3], /测试/);
 });
 
-test("animation preset carries stage/grade/course/knowledge_point_id", () => {
+test("animation preset carries teaching fields outside visualize config", () => {
   const preset = buildEducationComposerPreset(
     stageIntent("animation", "primary_upper", { knowledgePointId: "kp_pixels" }),
   );
-  assert.equal(preset.stage, "primary_upper");
-  assert.equal(preset.grade, 5);
-  assert.equal(preset.courseId, "image-recognition");
-  assert.equal(preset.knowledgePointId, "kp_pixels");
-  assert.equal(preset.config.knowledge_point_id, "kp_pixels");
+  assert.deepEqual(preset.educationContext, {
+    stage: "primary_upper",
+    grade: 5,
+    knowledge_point_id: "kp_pixels",
+  });
+  assert.equal("stage" in preset.config, false);
+  assert.equal("grade" in preset.config, false);
+  assert.equal("knowledge_point_id" in preset.config, false);
 });
 
 test("lesson draft mentions KB unreadiness when no knowledge bases", () => {

@@ -7,7 +7,11 @@ import sqlite3
 import pytest
 
 from deeptutor.services.path_service import PathService
-from deeptutor.services.session.sqlite_store import SQLiteSessionStore
+from deeptutor.services.session import sqlite_store as sqlite_store_module
+from deeptutor.services.session.sqlite_store import (
+    LegacyDBMigrationError,
+    SQLiteSessionStore,
+)
 
 
 def test_sqlite_store_defaults_to_data_user_chat_history_db(tmp_path: Path) -> None:
@@ -28,27 +32,205 @@ def test_sqlite_store_defaults_to_data_user_chat_history_db(tmp_path: Path) -> N
         service._user_data_dir = original_user_dir
 
 
-def test_sqlite_store_migrates_legacy_chat_history_db(tmp_path: Path) -> None:
-    service = PathService.get_instance()
-    original_root = service._project_root
-    original_user_dir = service._user_data_dir
+def _make_legacy_db(
+    tmp_path: Path,
+    rows: list[str] | None = None,
+    use_wal: bool = False,
+) -> tuple[Path, sqlite3.Connection | None]:
+    """Create a legacy ``data/chat_history.db`` with a ``legacy`` table.
 
+    Returns ``(legacy_db, conn)``. For the normal (non-WAL) case ``conn``
+    is ``None`` (already closed). With ``use_wal=True`` the database is
+    switched to WAL with auto-checkpointing disabled and the commit is left
+    *uncheckpointed* in the ``-wal`` sidecar, so the caller must keep the
+    returned connection open (closing it triggers SQLite's close-time
+    checkpoint and would erase the data being probed) and close it when
+    done.
+    """
+    legacy_db = tmp_path / "data" / "chat_history.db"
+    legacy_db.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(legacy_db)
+    if use_wal:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA wal_autocheckpoint=0")
+    conn.execute("CREATE TABLE legacy (id INTEGER PRIMARY KEY, val TEXT)")
+    for val in rows or ["hello"]:
+        conn.execute("INSERT INTO legacy (val) VALUES (?)", (val,))
+    conn.commit()
+    if not use_wal:
+        conn.close()
+        return legacy_db, None
+    return legacy_db, conn
+
+
+def _verify_legacy_rows(db_path: Path) -> list[str]:
+    conn = sqlite3.connect(db_path)
     try:
-        service._project_root = tmp_path
-        service._user_data_dir = tmp_path / "data" / "user"
-        legacy_db = tmp_path / "data" / "chat_history.db"
-        legacy_db.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(legacy_db) as conn:
-            conn.execute("CREATE TABLE legacy (id INTEGER PRIMARY KEY)")
-            conn.commit()
+        rows = [r[0] for r in conn.execute("SELECT val FROM legacy ORDER BY id")]
+    finally:
+        conn.close()
+    return rows
+
+
+def _monkeypatch_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Point the ``PathService`` singleton at ``tmp_path``; restore on exit.
+
+    Using ``monkeypatch.setattr`` keeps the singleton's attributes
+    isolated per test, so the tests stay order independent.
+    """
+    service = PathService.get_instance()
+    monkeypatch.setattr(service, "_project_root", tmp_path)
+    monkeypatch.setattr(service, "_user_data_dir", tmp_path / "data" / "user")
+
+
+def _replace_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make every ``os.replace`` in the store module raise OSError."""
+    def forbidden_replace(src, dst, *args, **kwargs):
+        raise OSError(32, "Sharing violation", str(src))
+
+    monkeypatch.setattr(sqlite_store_module.os, "replace", forbidden_replace)
+
+
+def _replace_fails_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the first ``os.replace`` (the atomic publish) fail, then pass."""
+    orig = sqlite_store_module.os.replace
+    state = {"n": 0}
+
+    def limited_replace(src, dst, *args, **kwargs):
+        state["n"] += 1
+        if state["n"] == 1:
+            raise OSError(32, "Sharing violation", str(src))
+        return orig(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(sqlite_store_module.os, "replace", limited_replace)
+
+
+def _legacy_unlink_fails(monkeypatch: pytest.MonkeyPatch, legacy_str: str) -> None:
+    """Make removing the legacy file fail as if it were still open."""
+    orig_unlink = Path.unlink
+
+    def locked_unlink(self: Path, *args, **kwargs):
+        if str(self) == legacy_str:
+            raise OSError(32, "Sharing violation", str(self))
+        return orig_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", locked_unlink)
+
+
+def test_migration_normal_closed_database(monkeypatch, tmp_path: Path) -> None:
+    _monkeypatch_paths(tmp_path, monkeypatch)
+    legacy_db, _ = _make_legacy_db(tmp_path, ["alpha", "beta"])
+
+    store = SQLiteSessionStore()
+
+    assert store.db_path.exists()
+    assert not legacy_db.exists()
+    assert _verify_legacy_rows(store.db_path) == ["alpha", "beta"]
+
+
+def test_migration_folds_uncheckpointed_wal_with_writer_open(monkeypatch, tmp_path: Path) -> None:
+    _monkeypatch_paths(tmp_path, monkeypatch)
+    legacy_db, conn = _make_legacy_db(tmp_path, ["alpha", "beta", "gamma"], use_wal=True)
+    try:
+        # The committed rows must still live in the WAL sidecar, not the
+        # main database, at the moment the migration runs.
+        wal_file = legacy_db.with_name(legacy_db.name + "-wal")
+        assert wal_file.exists()
+        assert wal_file.stat().st_size > 0
 
         store = SQLiteSessionStore()
 
         assert store.db_path.exists()
-        assert not legacy_db.exists()
+        assert _verify_legacy_rows(store.db_path) == ["alpha", "beta", "gamma"]
     finally:
-        service._project_root = original_root
-        service._user_data_dir = original_user_dir
+        conn.close()
+
+
+def test_migration_backup_failure_keeps_legacy_and_skips_start(monkeypatch, tmp_path: Path) -> None:
+    _monkeypatch_paths(tmp_path, monkeypatch)
+    target = tmp_path / "data" / "user" / "chat_history.db"
+    legacy_db = tmp_path / "data" / "chat_history.db"
+    legacy_db.parent.mkdir(parents=True, exist_ok=True)
+    legacy_db.write_bytes(b"this is not a sqlite database at all")
+
+    with pytest.raises(LegacyDBMigrationError, match="Could not migrate"):
+        SQLiteSessionStore()
+
+    # A failed migration keeps the legacy DB, never creates the target, and
+    # the store cannot be constructed with an empty history.
+    assert legacy_db.exists()
+    assert not target.exists()
+
+
+def test_migration_quickcheck_failure_keeps_legacy_and_skips_start(monkeypatch, tmp_path: Path) -> None:
+    _monkeypatch_paths(tmp_path, monkeypatch)
+    target = tmp_path / "data" / "user" / "chat_history.db"
+    legacy_db, _ = _make_legacy_db(tmp_path, ["alpha"])
+    conn = sqlite3.connect(legacy_db)
+    try:
+        conn.execute("PRAGMA writable_schema=ON")
+        conn.execute("UPDATE sqlite_schema SET rootpage=12345 WHERE name='legacy'")
+        conn.commit()
+    finally:
+        conn.close()
+
+    with pytest.raises(LegacyDBMigrationError):
+        SQLiteSessionStore()
+
+    assert legacy_db.exists()
+    assert not target.exists()
+
+
+def test_migration_publish_failure_keeps_legacy_and_cleans_temp(monkeypatch, tmp_path: Path) -> None:
+    _monkeypatch_paths(tmp_path, monkeypatch)
+    target = tmp_path / "data" / "user" / "chat_history.db"
+    legacy_db, _ = _make_legacy_db(tmp_path, ["alpha", "beta"])
+    _replace_fails(monkeypatch)
+
+    with pytest.raises(LegacyDBMigrationError, match="Could not migrate"):
+        SQLiteSessionStore()
+
+    assert legacy_db.exists()
+    assert not target.exists()
+    # No staging temp file is left behind either.
+    assert list(target.parent.glob(".*.tmp")) == []
+
+
+def test_migration_publish_then_legacy_delete_failure_keeps_target(monkeypatch, tmp_path: Path) -> None:
+    _monkeypatch_paths(tmp_path, monkeypatch)
+    legacy_db, _ = _make_legacy_db(tmp_path, ["alpha"])
+    _legacy_unlink_fails(monkeypatch, str(legacy_db))
+
+    store = SQLiteSessionStore()
+
+    # The target is fully published and usable even though the old file
+    # could not be removed (e.g. a still-open handle on Windows).
+    assert store.db_path.exists()
+    assert legacy_db.exists()
+    assert _verify_legacy_rows(store.db_path) == ["alpha"]
+
+
+def test_migration_retries_after_failure_and_is_idempotent(monkeypatch, tmp_path: Path) -> None:
+    _monkeypatch_paths(tmp_path, monkeypatch)
+    target = tmp_path / "data" / "user" / "chat_history.db"
+    legacy_db, _ = _make_legacy_db(tmp_path, ["alpha", "beta"])
+    _replace_fails_once(monkeypatch)
+
+    with pytest.raises(LegacyDBMigrationError):
+        SQLiteSessionStore()
+    # First attempt left both the legacy data and the target untouched, so a
+    # later launch can retry the migration.
+    assert legacy_db.exists()
+    assert not target.exists()
+
+    store = SQLiteSessionStore()
+    assert target.exists()
+    assert not legacy_db.exists()
+    assert _verify_legacy_rows(store.db_path) == ["alpha", "beta"]
+
+    # A subsequent launch sees the target and skips migration entirely.
+    second = SQLiteSessionStore()
+    assert _verify_legacy_rows(second.db_path) == ["alpha", "beta"]
 
 
 @pytest.fixture

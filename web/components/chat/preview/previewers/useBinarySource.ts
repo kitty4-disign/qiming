@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { apiFetch } from "@/lib/api";
 
 // Ceiling for an in-browser office render. docx-preview / exceljs both hold
@@ -20,12 +21,13 @@ export type BinarySourceState =
  * but yields raw bytes instead of decoded text.
  */
 export function useBinarySource(url: string | null): BinarySourceState {
+  const { t } = useTranslation();
   const [state, setState] = useState<BinarySourceState>({ kind: "loading" });
   const reqIdRef = useRef(0);
 
   useEffect(() => {
     if (!url) {
-      setState({ kind: "error", message: "Preview source is not available." });
+      setState({ kind: "error", message: t("Preview source is not available.") });
       return;
     }
 
@@ -40,7 +42,7 @@ export function useBinarySource(url: string | null): BinarySourceState {
         const lengthHeader = res.headers.get("content-length");
         if (lengthHeader && Number(lengthHeader) > MAX_BYTES) {
           throw new Error(
-            "File is too large to preview. Use the Download button.",
+            t("File is too large to preview. Use the Download button."),
           );
         }
         const buffer = await res.arrayBuffer();
@@ -50,7 +52,7 @@ export function useBinarySource(url: string | null): BinarySourceState {
         if (controller.signal.aborted) return;
         if (reqIdRef.current !== reqId) return;
         const message =
-          err instanceof Error ? err.message : "Failed to load preview";
+          err instanceof Error ? err.message : t("Failed to load preview");
         setState({ kind: "error", message });
       }
     })();
@@ -58,7 +60,7 @@ export function useBinarySource(url: string | null): BinarySourceState {
     return () => {
       controller.abort();
     };
-  }, [url]);
+  }, [url, t]);
 
   return state;
 }

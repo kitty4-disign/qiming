@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { getLaunchContext } from "@/lib/education-api";
+import { educationErrorKey, getLaunchContext } from "@/lib/education-api";
 import { buildEducationLaunchIntent } from "@/lib/education-launch-builder";
 import { saveEducationLaunch } from "@/lib/education-launch";
 import type {
@@ -79,7 +79,7 @@ export function RecommendedNextStep({
       onLaunched?.();
       router.push(meta.route);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : t("Launch failed"));
+      setError(t(educationErrorKey(reason)));
       setPending(false);
     }
   };
@@ -94,7 +94,7 @@ export function RecommendedNextStep({
         className="flex items-center gap-1.5 text-sm font-semibold text-[var(--foreground)]"
       >
         <Lightbulb aria-hidden="true" className="size-4 text-[var(--primary)]" />
-        {t("Next Step")}
+        {t("Recommended Next Step")}
       </h2>
       <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
         <div className="flex items-start gap-3">
@@ -120,11 +120,6 @@ export function RecommendedNextStep({
                     <span className="font-medium text-[var(--foreground)]">
                       {reason.message_zh}
                     </span>
-                    {reason.code && (
-                      <span className="ml-1 rounded bg-[var(--muted)] px-1 py-0.5 text-[10px] text-[var(--muted-foreground)]">
-                        {reason.code}
-                      </span>
-                    )}
                   </li>
                 ))}
               </ul>

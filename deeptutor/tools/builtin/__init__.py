@@ -116,9 +116,22 @@ class RAGTool(_PromptHintsMixin, BaseTool):
             **extra_kwargs,
         )
         content = result.get("answer") or result.get("content", "")
+        passage_sources = []
+        for source in result.get("sources") or []:
+            if not isinstance(source, dict):
+                continue
+            passage_sources.append(
+                {
+                    **source,
+                    "type": "rag",
+                    "query": query,
+                    "kb_name": kb_name,
+                    "provider": result.get("provider", ""),
+                }
+            )
         return ToolResult(
             content=content,
-            sources=[{"type": "rag", "query": query, "kb_name": kb_name}],
+            sources=passage_sources,
             metadata=result,
         )
 

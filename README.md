@@ -186,6 +186,7 @@ DeepTutor ships a K12 AI literacy workspace at [`/education`](http://127.0.0.1:3
 - [K12 knowledge base setup](docs/k12-knowledge-base-setup.md) — create and index the four stage-specific textbook KBs.
 - [Five-minute competition demo script](docs/k12-competition-demo-script.md) — repeatable evaluator walkthrough.
 - [K12 system architecture](docs/k12-system-architecture.md) — data flow, RAG provenance, safety, and deployment options.
+- [K12 deployment guide](docs/k12-deployment.md) — from-zero deployment to demo-ready checklist.
 
 ---
 

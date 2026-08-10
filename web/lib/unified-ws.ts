@@ -11,6 +11,7 @@
  */
 
 import { wsUrl } from "./api";
+import type { EducationStageLiteral } from "./education-launch";
 
 // ---- StreamEvent types (mirror Python StreamEventType) ----
 
@@ -47,6 +48,12 @@ export interface LLMSelection {
   model_id: string;
 }
 
+export interface EducationContext {
+  stage: EducationStageLiteral;
+  grade: number;
+  knowledge_point_id?: string;
+}
+
 // ---- Client message ----
 
 export interface StartTurnMessage {
@@ -65,6 +72,7 @@ export interface StartTurnMessage {
   }[];
   language?: string;
   config?: Record<string, unknown>;
+  education_context?: EducationContext;
   notebook_references?: {
     notebook_id: string;
     record_ids: string[];
@@ -165,6 +173,7 @@ export class UnifiedWSClient {
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private intentionalClose = false;
+  private pendingMessages: ChatMessage[] = [];
 
   private activeTurnId: string | null = null;
   private lastSeq = 0;
@@ -198,6 +207,11 @@ export class UnifiedWSClient {
           turn_id: this.activeTurnId,
           seq: this.lastSeq,
         });
+      }
+
+      const pending = this.pendingMessages.splice(0);
+      for (const message of pending) {
+        this.ws?.send(JSON.stringify(message));
       }
     };
 
@@ -235,7 +249,7 @@ export class UnifiedWSClient {
 
   send(msg: ChatMessage): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error("WebSocket not connected");
+      this.pendingMessages.push(msg);
       return;
     }
     this.ws.send(JSON.stringify(msg));
@@ -247,6 +261,7 @@ export class UnifiedWSClient {
     this.clearReconnectTimer();
     this.ws?.close();
     this.ws = null;
+    this.pendingMessages = [];
     this.resetResumeState();
   }
 
@@ -285,6 +300,7 @@ export class UnifiedWSClient {
 
   private attemptReconnect(): void {
     if (this.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      this.pendingMessages = [];
       this.resetResumeState();
       this.onClose?.();
       return;

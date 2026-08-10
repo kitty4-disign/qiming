@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from deeptutor.agents.math_animator.request_config import (
     MathAnimatorRequestConfig,
@@ -14,6 +14,7 @@ from deeptutor.agents.research.request_config import (
     DeepResearchRequestConfig,
     validate_research_request_config,
 )
+from deeptutor.education.models import EducationStage, STAGE_GRADE_RANGE
 
 _RUNTIME_ONLY_KEYS = {
     "_persist_user_message",
@@ -85,6 +86,25 @@ class K12TutorRequestConfig(BaseModel):
     activity_mode: Literal["lesson", "quiz", "coding"] = "lesson"
 
 
+class EducationRequestContext(BaseModel):
+    """Per-turn teaching context shared by education-aware capabilities."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    stage: EducationStage
+    grade: int = Field(ge=1, le=12)
+    knowledge_point_id: str | None = Field(default=None, min_length=1, max_length=120)
+
+    @model_validator(mode="after")
+    def validate_stage_grade(self) -> "EducationRequestContext":
+        low, high = STAGE_GRADE_RANGE[self.stage]
+        if not low <= self.grade <= high:
+            raise ValueError(
+                f"grade must be between {low} and {high} for {self.stage.value}"
+            )
+        return self
+
+
 def _clean_public_config(raw_config: dict[str, Any] | None) -> dict[str, Any]:
     if raw_config is None:
         return {}
@@ -141,6 +161,24 @@ def validate_k12_tutor_request_config(
     return _validate_model(K12TutorRequestConfig, raw_config, label="K12 tutor")
 
 
+def validate_education_request_context(
+    raw_context: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if raw_context is None:
+        return None
+    if not isinstance(raw_context, dict):
+        raise ValueError("Education context must be an object.")
+    try:
+        model = EducationRequestContext.model_validate(raw_context)
+    except ValidationError as exc:
+        details = "; ".join(
+            f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
+            for error in exc.errors()
+        )
+        raise ValueError(f"Invalid education context: {details}") from exc
+    return model.model_dump(mode="json", exclude_none=True)
+
+
 def build_request_schema(model_type: type[BaseModel]) -> dict[str, Any]:
     return model_type.model_json_schema(mode="validation")
 
@@ -188,6 +226,7 @@ __all__ = [
     "ChatRequestConfig",
     "DeepQuestionRequestConfig",
     "DeepSolveRequestConfig",
+    "EducationRequestContext",
     "K12TutorRequestConfig",
     "VisualizeRequestConfig",
     "build_request_schema",
@@ -196,6 +235,7 @@ __all__ = [
     "validate_chat_request_config",
     "validate_deep_question_request_config",
     "validate_deep_solve_request_config",
+    "validate_education_request_context",
     "validate_k12_tutor_request_config",
     "validate_visualize_request_config",
 ]

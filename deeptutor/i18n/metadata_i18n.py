@@ -27,6 +27,10 @@ _CAPABILITY_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "en": "Structured mastery-based learning with spaced repetition.",
         "zh": "结构化掌握式学习，结合间隔复习。",
     },
+    "k12_tutor": {
+        "en": "Age-adaptive K12 AI literacy tutoring backed by mastery learning.",
+        "zh": "根据学段调整教学方式的 K12 人工智能通识学习助手。",
+    },
     "visualize": {
         "en": "Create visual explanations such as SVG, charts, Mermaid, HTML, or Manim.",
         "zh": "生成 SVG、图表、Mermaid、HTML 或 Manim 等可视化讲解。",

@@ -125,11 +125,11 @@ class StudentProfile(BaseModel):
 |---|---|---|
 | 对话问答 | `AgenticChatPipeline`、统一 WebSocket | 学段提示词与 `/education` 入口 |
 | 教材知识库 | `deeptutor/knowledge`、RAG 工具 | 教材到 KB 名称的映射 |
-| 自动测验 | `deep_question`、`QuizViewer`、错题本 | 预填主题与难度（3 题 / auto） |
+| 自动测验 | `k12_tutor`（`activity_mode=quiz`）、`MasteryLoop`、错题本 | M1 起：测验路由到 `k12_tutor` + `mastery_quiz` → `mastery_grade` 闭环，错题写入课程稳定 `mastery_path_id` |
 | 掌握度闭环 | `deeptutor/learning`、`mastery_path` | 稳定 path_id 与工作台展示 |
 | 动画讲解 | `visualize`、`math_animator` | 预填主题与 HTML 渲染模式 |
 | 绘本生成 | `book` 页面与 Book pipeline | 课程入口链接与主题提示 |
-| 编程实践 | `code_execution` 与现有 sandbox | 年级化任务提示与入口 |
+| 编程实践 | 独立 `CodingLab` 页面 + 既有 sandbox（M3） | 年级化任务、可见/隐藏测试、渐进提示、沙箱隔离（`/education/lab/{courseId}/{taskId}`） |
 | 多模态附件 | 既有附件上传、文档解析、图像输入 | 无新增底层实现 |
 
 K12 编排层不实现新的渲染引擎、沙箱或检索算法，仅做入口适配与配置预填。
@@ -139,6 +139,8 @@ K12 编排层不实现新的渲染引擎、沙箱或检索算法，仅做入口�
 - **掌握度边界**：K12 模块**不重写** `deeptutor/learning/grading.py`、`mastery.py`、`scheduler.py`。掌握度计数、调度、评分全部由既有 `MasteryLoopCapability` 与 `fetchMasteryMap` 提供。
 - K12 仅负责：设置 `mastery_mode=True`、设置稳定的 `mastery_path_id`、挂载掌握式工具（`MASTERY_TOOL_NAMES`）。
 - 测验评分、错题入错题本、知识状态推进均由既有 `deep_question` 与掌握度模块确定性完成，K12 不干预评分逻辑。
+- **多模态完成边界（M2）**：动画、绘本、课堂、编程完成仅通过 `POST /api/v1/education/events` 记录学习证据，**不改变掌握度**。只有测验（通过 `grade_and_record` 评判管线）才能更新掌握度等级。这防止了点击「我懂了」动画后掌握度虚假膨胀。验收测试 `test_m2_acceptance.py` 覆盖此边界。
+- **游戏化纯函数（M3 §8.2）**：`compute_gamification(progress, events)` 是纯函数——相同输入永远产生相同输出。XP、等级、徽章、连续学习天数全部从真实学习记录派生，不存储、不累加、不扣减。错题不扣 XP，无排行榜，无抽卡。刷新页面不会膨胀 XP 或徽章。
 
 ## 8. 安全与隐私控制
 
@@ -148,7 +150,50 @@ K12 编排层不实现新的渲染引擎、沙箱或检索算法，仅做入口�
 - **KB 可见性**：仅解析当前用户可见的 KB，不会为缺失 KB 创建伪造名称。
 - **跨学段校验**：学段/年级/教材三者一致性由后端强制，前端误操作返回 HTTP 422。
 
-## 9. 部署选项
+## 9. 编程实验室（M3 §8.1）
+
+高中阶段的编程实践不再走 `/home` + `code_execution` 工具，而是独立的 `CodingLab` 组件，位于 `web/app/(workspace)/education/lab/[courseId]/[taskId]/page.tsx`。
+
+**数据流**：
+1. 工作台「编程实践」动作卡片跳转到 `/education/lab/{courseId}/{taskId}`。
+2. `CodingLab` 组件调用 `GET /api/v1/education/coding-tasks/{task_id}` 获取任务说明、初始代码、可见测试、提示数量。
+3. 学生编辑代码后点击「运行」，调用 `POST /api/v1/education/code/run`，在隔离沙箱中执行。
+4. 沙箱返回可见测试结果（含期望输出对比）与隐藏测试通过计数；隐藏测试的期望输出永远不会返回前端。
+5. 全部测试通过后，前端调用 `POST /api/v1/education/events` 记录一次 `coding` 完成事件（仅作学习证据，不改变掌握度）。
+6. 学生可点击「获取提示」调用 `GET /api/v1/education/coding-tasks/{task_id}/hint?attempt=n`，渐进提示首次仅给思路，不直接给答案。
+
+**沙箱隔离规格**：
+- 超时 15 秒，内存 256MB，CPU 10 秒，输出 8000 字符上限。
+- 禁止 `socket`/`subprocess`/`os`/`ctypes`/`urllib`/`requests`/`shutil`/`pathlib`/`__import__` 等危险导入，在到达沙箱前被 `_validate_source` 拒绝。
+- 沙箱不可用时返回 HTTP 503，不伪造成功。
+- 支持 Python / C / C++ 三种语言（按任务配置）。
+
+**任务定义**：
+- 编程任务定义在 `deeptutor/education/coding_tasks.py`，每个任务包含：说明、初始代码、允许语言、可见测试（含期望输出）、隐藏测试（期望输出不返回前端）、渐进提示列表。
+- 当前旗舰任务：`image-features-nearest-centroid`（高中，图像特征最近邻分类）。
+
+## 10. 目录 v2 与确定性推荐器（M4/M1）
+
+### 目录 v2（M4 §9.2）
+
+`catalog.yaml` 已升级到 v2，每个学段包含旗舰课程 + 第二课程（共 8 课程）。v2 新增字段：
+- `prerequisite_ids`：第二课程的前置课程（指向同教材旗舰课程）。
+- `estimated_minutes`、`difficulty`（1-5，随学段递增）、`age_policy`。
+- `default_knowledge_point_id`、`learning_objectives`、`common_misconceptions`、`safety_notes`、`reference_sources`。
+- `coding_task_ids`：课程关联的编程任务（已校验存在）。
+- v1 向后兼容：v2 字段都有默认值，v1 风格课程仍可校验通过。
+
+### 确定性推荐器（M1）
+
+`deeptutor/education/recommender.py` 的 `recommend(ctx)` 是纯函数，基于掌握度状态输出下一知识点推荐：
+- `next_new_point`：所有知识点都未学习时，推荐第一个新知识点。
+- `weak_point`：某知识点答错后掌握度下降，推荐该薄弱知识点。
+- `due_review`：知识点进入复习窗口（由既有调度器决定）。
+- `course_complete`：全部知识点已掌握。
+
+推荐结果包含 `knowledge_point_id`、`knowledge_point_name`、`recommended_action`、`reasons`（含 `code` 和可读说明）。前端 `RecommendedNextStep.tsx` 展示推荐，`LearningTimeline.tsx` 展示最近学习事件，两者都来自 `GET /api/v1/education/dashboard/{course_id}` 一次性聚合接口。
+
+## 11. 部署选项
 
 ### Docker / Compose 部署
 
@@ -174,8 +219,9 @@ K12 接口遵循 `/api/v1/education/*` 前缀，可被第三方前端或评测�
 ### 页面嵌入
 
 `/education` 路由可嵌入既有 DeepTutor 前端，复用统一侧边栏、认证与 WebSocket 通道，无需独立部署前端。
+- 完整的竞赛部署步骤（含知识库初始化、模型配置、冒烟测试）见 [docs/k12-deployment.md](k12-deployment.md)。
 
-## 10. 已知局限
+## 12. 已知局限
 
 - **生成内容仍需教师复核**：LLM 生成的讲解、测验、动画与绘本可能存在事实偏差或表述不当，K12 模块不替代教师审阅。
 - **知识库就绪依赖嵌入服务**：K12 降级为无 RAG 时仍可对话，但教材级引用与来源追溯依赖嵌入服务可用且 KB 已索引。

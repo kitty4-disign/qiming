@@ -30,6 +30,15 @@ class Attachment:
     extracted_text: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class EducationContext:
+    """Validated per-turn teaching context, separate from capability config."""
+
+    stage: str
+    grade: int
+    knowledge_point_id: str = ""
+
+
 @dataclass
 class UnifiedContext:
     """
@@ -64,6 +73,7 @@ class UnifiedContext:
             source: id/name/type/preview). Empty when no sources are attached.
             Consumed by the chat capability to render an "Attached Sources"
             section in the system prompt and to enable the ``read_source`` tool.
+        education_context: Validated teaching target for this request.
         metadata: Catch-all for capability-specific extras.
     """
 
@@ -81,4 +91,5 @@ class UnifiedContext:
     persona_context: str = ""
     skills_manifest: str = ""
     source_manifest: str = ""
+    education_context: EducationContext | None = None
     metadata: dict[str, Any] = field(default_factory=dict)

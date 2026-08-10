@@ -27,6 +27,15 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   abandoned: "Left",
 };
 
+const ACTIVITY_LABELS: Record<string, string> = {
+  lesson: "lesson",
+  quiz: "Quiz",
+  animation: "Animation",
+  storybook: "storybook",
+  coding: "coding",
+  resource: "resource",
+};
+
 function formatRelativeTime(timestamp: number, locale: string): string {
   const now = Date.now();
   const diff = now / 1000 - timestamp;
@@ -61,7 +70,7 @@ export function LearningTimeline({ events }: LearningTimelineProps) {
           id="timeline-title"
           className="text-sm font-semibold text-[var(--foreground)]"
         >
-          {t("Recent Activity")}
+          {t("Learning Timeline")}
         </h2>
         <p className="mt-3 text-xs text-[var(--muted-foreground)]">
           {t("No learning activity yet")}
@@ -79,12 +88,13 @@ export function LearningTimeline({ events }: LearningTimelineProps) {
         id="timeline-title"
         className="text-sm font-semibold text-[var(--foreground)]"
       >
-        {t("Recent Activity")}
+        {t("Learning Timeline")}
       </h2>
       <ol className="mt-3 space-y-2">
         {events.slice(0, 8).map((event) => {
           const Icon = ACTIVITY_ICONS[event.activity] ?? MessageCircle;
-          const typeLabel = EVENT_TYPE_LABELS[event.event_type] ?? event.event_type;
+          const typeLabel = EVENT_TYPE_LABELS[event.event_type] ?? "Activity";
+          const activityLabel = ACTIVITY_LABELS[event.activity] ?? "Activity";
           return (
             <li
               key={event.id}
@@ -95,7 +105,7 @@ export function LearningTimeline({ events }: LearningTimelineProps) {
                 className="size-3.5 shrink-0 text-[var(--primary)]"
               />
               <span className="min-w-0 flex-1 text-xs text-[var(--foreground)]">
-                {t(typeLabel)} {t(event.activity)}
+                {t(typeLabel)} {t(activityLabel)}
                 {event.score !== null && (
                   <span className="ml-1 text-[var(--muted-foreground)]">
                     ({Math.round(event.score * 100)}%)

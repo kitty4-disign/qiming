@@ -53,10 +53,22 @@ _THINK_CLOSE_RE = re.compile(r"<\s*/\s*think(?:ing)?\s*>", re.IGNORECASE)
 # Longest partial tag worth waiting a chunk for (e.g. "</thinking" + slack).
 _TAG_HOLDBACK_CHARS = 24
 
+# Internal tool-call protocol tags the model may accidentally emit as plain
+# text when it still wants to call a tool but the loop is forcing a finish
+# (tools disabled). These must never reach the user as visible content.
+_TOOL_CALL_BLOCK_RE = re.compile(
+    r"<\s*tool_call\b[^>]*>.*?<\s*/\s*tool_call\s*>", re.DOTALL | re.IGNORECASE
+)
+_TOOL_FUNC_BLOCK_RE = re.compile(
+    r"<\s*function\b[^>]*>.*?<\s*/\s*function\s*>", re.DOTALL | re.IGNORECASE
+)
+_TOOL_TAG_RE = re.compile(
+    r"<\s*/?\s*(?:tool_call|function|parameter)\b[^>]*>", re.IGNORECASE
+)
+
 
 class InlineThinkFilter:
     """Incremental ``<think>``/``<thinking>`` splitter for streamed content.
-
     Some providers surface reasoning inline in the *content* channel (instead
     of ``reasoning_content``), wrapped in think tags. Splitting at streaming
     time keeps the user-facing content channel clean everywhere downstream —
@@ -107,6 +119,52 @@ class InlineThinkFilter:
 
     def _kind(self) -> str:
         return "thinking" if self._in_think else "content"
+
+
+class ToolProtocolFilter:
+    """Incremental remover of leaked internal tool-call protocol from the
+    streamed content channel.
+
+    When the loop forces a finish with tools disabled, a model that still
+    wants to call a tool sometimes writes the call as plain text
+    (``<tool_call>`` / ``<function=…>`` / ``<parameter=…>`` blocks). The raw
+    text must never reach the user's live bubble, so complete blocks are
+    stripped as they stream by; a partial tag at the chunk boundary is held
+    back until the next chunk (``flush`` releases it at stream end). The raw
+    text still goes back into the LLM conversation untouched.
+    """
+
+    def __init__(self) -> None:
+        self._buffer = ""
+
+    def feed(self, chunk: str) -> str:
+        """Consume *chunk* and return the clean, emit-ready content."""
+        self._buffer += chunk
+        emitted = ""
+        while True:
+            block = _TOOL_CALL_BLOCK_RE.search(self._buffer)
+            if block is None:
+                block = _TOOL_FUNC_BLOCK_RE.search(self._buffer)
+            if block is None:
+                break
+            emitted += self._buffer[: block.start()]
+            self._buffer = self._buffer[block.end() :]
+        cleaned = _TOOL_TAG_RE.sub(" ", self._buffer)
+        emit_upto = len(cleaned)
+        tag_start = cleaned.rfind("<")
+        if tag_start != -1 and ">" not in cleaned[tag_start:]:
+            emit_upto = tag_start
+        emitted += cleaned[:emit_upto]
+        self._buffer = cleaned[emit_upto:]
+        return emitted
+
+    def flush(self) -> str:
+        """Release whatever is still buffered (stream ended)."""
+        if not self._buffer:
+            return ""
+        cleaned = _TOOL_TAG_RE.sub(" ", self._buffer).strip()
+        self._buffer = ""
+        return cleaned
 
 
 @dataclass(slots=True)
@@ -213,6 +271,33 @@ class AgentLoop:
 
     def _clean(self, text: str) -> str:
         return clean_thinking_tags(text, self.pipeline.binding, self.pipeline.model).strip()
+
+    # ---- protocol leak protection ----------------------------------------
+
+    @staticmethod
+    def _is_turn_boundary_capability(context: UnifiedContext) -> bool:
+        """Whether the active capability treats ``ask_user`` as a turn boundary
+        (K12 tutor). Such turns must NEVER fake a completion when the loop is
+        cut short — they safe-pause instead and let the next turn continue."""
+        return bool((context.metadata or {}).get("ask_user_turn_boundary"))
+
+    def _sanitize_user_facing_text(self, text: str) -> str:
+        """Strip leaked internal tool-call protocol from user-facing text.
+
+        When the loop forces a finish (tools disabled) the model sometimes
+        writes its intended tool call as plain text — e.g. a bare
+        ``<tool_call>`` / ``<function=mastery_grade>`` / ``<parameter=…>``
+        block. That is internal protocol and must never surface to the user.
+        """
+        if not text:
+            return text
+        text = _TOOL_CALL_BLOCK_RE.sub(" ", text)
+        text = _TOOL_FUNC_BLOCK_RE.sub(" ", text)
+        text = _TOOL_TAG_RE.sub(" ", text)
+        # Collapse the whitespace left behind by removed tags.
+        text = re.sub(r"[ \t]{2,}", " ", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip()
 
     # ---- agent loop --------------------------------------------------------
 
@@ -384,6 +469,24 @@ class AgentLoop:
             stage=LOOP_STAGE,
             metadata={"trace_kind": "warning"},
         )
+        # K12 / mastery safe pause: a teaching segment that ran out of loop
+        # budget still has real work pending (a posed question to grade, a
+        # knowledge point below its gate). Forcing a tool-less final LLM call
+        # here is exactly what produces fake "<tool_call>" text as the answer
+        # — and a fabricated "course complete". Instead we end the turn and
+        # let the NEXT turn (fresh budget) continue from the persisted mastery
+        # state: mastery_status still reports the pending question / objective,
+        # so nothing is lost and nothing is faked.
+        if reason == "budget" and self._is_turn_boundary_capability(self.context):
+            pause_text = self.pipeline._t(
+                "notices.mastery_paused_for_next_turn",
+                default=(
+                    "This teaching step needs one more exchange — the lesson "
+                    "continues on your next message. Ask me to go on!"
+                ),
+            )
+            await self._emit_turn_boundary_pause(stream=self.stream, text=pause_text)
+            return LoopOutcome(final_text=pause_text, completed=False)
         messages.append({"role": "user", "content": self.pipeline._finish_exhausted_instruction()})
         try:
             result = await self._call_llm(
@@ -403,8 +506,26 @@ class AgentLoop:
         state.rounds += 1
         return await self._finalize_finish(result.text)
 
+    async def _emit_turn_boundary_pause(
+        self,
+        *,
+        stream: StreamBus,
+        text: str,
+    ) -> None:
+        """Stream a visible pause notice for a K12 turn that safe-paused.
+
+        Emitted as user-facing content (not just a trace notice) so the
+        persisted assistant message is non-empty and the bubble shows the
+        learner that teaching is paused, not finished.
+        """
+        await self.pipeline._emit_protocol_fallback_final_response(stream, text)
+
     async def _finalize_finish(self, raw_text: str) -> LoopOutcome:
         final_text = self._clean(raw_text)
+        # Defence-in-depth: strip any leaked internal tool-call protocol from
+        # the finish text (see _sanitize_user_facing_text). This runs on every
+        # finish round, not only the forced-finish path.
+        final_text = self._sanitize_user_facing_text(final_text)
         if not final_text:
             # The finish round produced no usable text; nothing streamed to
             # the user, so emit a fallback answer here.
@@ -470,11 +591,17 @@ class AgentLoop:
         output_chars = 0
         finish_reason = ""
         think_filter = InlineThinkFilter()
+        tool_protocol_filter = ToolProtocolFilter()
         chunk_meta = merge_trace_metadata(trace_meta, {"trace_kind": "llm_chunk"})
 
         async def _emit_segments(segments: list[tuple[str, str]]) -> None:
             for kind, segment in segments:
                 if kind == "content":
+                    # Strip any leaked internal tool-call protocol BEFORE the
+                    # text reaches the live bubble (see ToolProtocolFilter).
+                    segment = tool_protocol_filter.feed(segment)
+                    if not segment:
+                        continue
                     await self.stream.content(
                         segment, source="chat", stage=stage, metadata=chunk_meta
                     )
@@ -545,6 +672,12 @@ class AgentLoop:
                     await close()
 
         await _emit_segments(think_filter.flush())
+        # Release any protocol tags held back at the stream end.
+        trailing_protocol = tool_protocol_filter.flush()
+        if trailing_protocol:
+            await self.stream.content(
+                trailing_protocol, source="chat", stage=stage, metadata=chunk_meta
+            )
         text = "".join(text_parts)
         if self.pipeline.usage.calls == before_usage_calls:
             self.pipeline.usage.add_estimated(

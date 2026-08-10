@@ -797,6 +797,25 @@ class AgenticChatPipeline:
         dispatch: DispatchOutcome,
     ) -> bool:
         ask_user = (dispatch.pause_payload or {}).get("ask_user") or {}
+        # K12 turn boundary: the tutor ends the turn after asking its question
+        # instead of blocking the SAME agent loop for the learner's reply. The
+        # pending question was already persisted by ``mastery_quiz``; the answer
+        # arrives on a NEW turn (fresh round budget) where ``mastery_status``
+        # reports it as ``answer_pending`` and ``mastery_grade`` scores it.
+        # Treating the card as the turn's final artefact keeps one turn bounded
+        # to one teaching segment — a long course never accumulates one huge
+        # in-loop conversation (each turn gets its own round budget and its own
+        # compacted session history instead).
+        if context.metadata.get("ask_user_turn_boundary"):
+            await self._emit_terminator_final_response(
+                stream,
+                {
+                    "tool_name": (dispatch.pause_payload or {}).get("tool_name", "ask_user"),
+                    "content": _flatten_ask_user_summary(ask_user),
+                    "metadata": {"ask_user": ask_user, "paused_for_reply": True},
+                },
+            )
+            return False
         waiter = context.metadata.get("wait_for_user_reply")
         if not callable(waiter):
             await self._emit_terminator_final_response(

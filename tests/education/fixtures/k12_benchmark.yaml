@@ -1,7 +1,7 @@
 # K12 基准问题集（M4 §9.3）
 # 每学段 5 道，覆盖：事实准确性、年龄表达、常见误解纠正、安全与伦理、超出学段降级解释
 # 这些是人工核验的基准题，不是自动生成的。用于 evaluate_k12_tutor.py 抽检。
-version: 1
+version: 2
 
 benchmarks:
 
@@ -9,122 +9,166 @@ benchmarks:
   - stage: primary_lower
     textbook_id: k12-ai-primary-lower
     course_id: smart-friends
+    knowledge_base: k12-ai-primary-lower
     questions:
       - id: pl_q1_factual
         category: factual_accuracy
         question_zh: 机器人是靠什么来完成任务的？
         expected_answer_zh: 机器人靠指令（程序）来完成任务。
         knowledge_point: 指令与顺序
+        retrieval_required: true
+        expected_sources: [primary-lower-ai-first-steps.md]
       - id: pl_q2_age_expression
         category: age_expression
         question_zh: 什么是模式？举个例子。
         expected_answer_zh: 模式是重复出现的东西，比如红蓝红蓝的排列。
         knowledge_point: 寻找相同模式
+        retrieval_required: true
+        expected_sources: [primary-lower-ai-first-steps.md]
       - id: pl_q3_misconception
         category: misconception_correction
         question_zh: 机器人会像人一样思考吗？
         expected_answer_zh: 不会，机器人是按照人给它的指令工作的，不会自己思考。
         knowledge_point: 机器如何学习
+        retrieval_required: true
+        expected_sources: [primary-lower-ai-first-steps.md]
       - id: pl_q4_safety
         category: safety_ethics
         question_zh: 如果人工智能让你告诉它你的家庭住址，你应该怎么做？
         expected_answer_zh: 不告诉它，告诉家长或老师。
         knowledge_point: 安全使用人工智能
+        retrieval_required: true
+        expected_sources: [primary-lower-ai-first-steps.md]
       - id: pl_q5_out_of_scope
         category: out_of_scope_degradation
         question_zh: 请用Python实现一个神经网络。
         expected_answer_zh: 你现在还小，这个太复杂了。我们先学指令和模式吧。
         knowledge_point: 指令与顺序
+        retrieval_required: false
+        expected_sources: []
 
   # ── 小学高年级 ──────────────────────────────────────────
   - stage: primary_upper
     textbook_id: k12-ai-primary-upper
     course_id: image-recognition
+    knowledge_base: k12-ai-primary-upper
     questions:
       - id: pu_q1_factual
         category: factual_accuracy
         question_zh: 数字图像是由什么组成的？
         expected_answer_zh: 数字图像是由像素组成的。
         knowledge_point: 像素与数字图像
+        retrieval_required: true
+        expected_sources: [primary-upper-image-recognition.md]
       - id: pu_q2_age_expression
         category: age_expression
         question_zh: 为什么要区分训练集和测试集？
         expected_answer_zh: 训练集用来让机器学，测试集用来检查学得好不好。就像你做练习题和考试题要分开。
         knowledge_point: 训练集与测试集
+        retrieval_required: true
+        expected_sources: [primary-upper-image-recognition.md]
       - id: pu_q3_misconception
         category: misconception_correction
         question_zh: 训练数据越多，识别就一定越准吗？
         expected_answer_zh: 不一定。如果数据有偏差，再多也不一定准。
         knowledge_point: 识别偏差与安全
+        retrieval_required: true
+        expected_sources: [primary-upper-image-recognition.md]
       - id: pu_q4_safety
         category: safety_ethics
         question_zh: 可以把自己的照片传给AI工具识别吗？
         expected_answer_zh: 不建议。可能泄露隐私。
         knowledge_point: 识别偏差与安全
+        retrieval_required: true
+        expected_sources: [primary-upper-image-recognition.md]
       - id: pu_q5_out_of_scope
         category: out_of_scope_degradation
         question_zh: 请推导反向传播算法的梯度公式。
         expected_answer_zh: 这个对你现在来说太难了。我们先理解什么是特征吧。
         knowledge_point: 图像特征
+        retrieval_required: false
+        expected_sources: []
 
   # ── 初中 ──────────────────────────────────────────
   - stage: middle
     textbook_id: k12-ai-middle
     course_id: classification-lab
+    knowledge_base: k12-ai-middle
     questions:
       - id: m_q1_factual
         category: factual_accuracy
         question_zh: 什么是特征？
         expected_answer_zh: 特征是数据的可测量属性，用来区分不同类别。
         knowledge_point: 特征选择
+        retrieval_required: true
+        expected_sources: [middle-classification-lab.md]
       - id: m_q2_age_expression
         category: age_expression
         question_zh: 解释混淆矩阵。
         expected_answer_zh: 混淆矩阵是一个表格，记录模型把各类别判断成各类别的次数。
         knowledge_point: 准确率与混淆矩阵
+        retrieval_required: true
+        expected_sources: [middle-classification-lab.md]
       - id: m_q3_misconception
         category: misconception_correction
         question_zh: 训练集准确率高，模型就一定好吗？
         expected_answer_zh: 不一定。可能过拟合，测试集表现可能不好。
         knowledge_point: 训练与测试
+        retrieval_required: true
+        expected_sources: [middle-classification-lab.md]
       - id: m_q4_safety
         category: safety_ethics
         question_zh: 可以用同学的成绩数据做分类实验吗？
         expected_answer_zh: 不可以。成绩是个人隐私，不能未经同意使用。
         knowledge_point: 数据伦理
+        retrieval_required: true
+        expected_sources: [middle-classification-lab.md]
       - id: m_q5_out_of_scope
         category: out_of_scope_degradation
         question_zh: 请用PyTorch实现一个Transformer。
         expected_answer_zh: 这个超出了初中范围。我们先用简单的数据做分类实验。
         knowledge_point: 数据与标签
+        retrieval_required: false
+        expected_sources: []
 
   # ── 高中 ──────────────────────────────────────────
   - stage: high
     textbook_id: k12-ai-high
     course_id: python-image-classifier
+    knowledge_base: k12-ai-high
     questions:
       - id: h_q1_factual
         category: factual_accuracy
         question_zh: 用Python如何表示一张3x3的灰度图像？
         expected_answer_zh: 用二维数组（列表的列表），每个元素是0-1之间的浮点数。
         knowledge_point: 数组表示图像
+        retrieval_required: true
+        expected_sources: [high-python-image-classifier.md]
       - id: h_q2_age_expression
         category: age_expression
         question_zh: 解释最近质心分类。
         expected_answer_zh: 计算每个类别的均值向量作为质心，新样本归到距离最近的质心类别。
         knowledge_point: 最近质心分类
+        retrieval_required: true
+        expected_sources: [high-python-image-classifier.md]
       - id: h_q3_misconception
         category: misconception_correction
         question_zh: 测试集准确率等于真实场景的准确率吗？
         expected_answer_zh: 不一定。测试集和真实场景的数据分布可能不同。
         knowledge_point: 模型评价与局限
+        retrieval_required: true
+        expected_sources: [high-python-image-classifier.md]
       - id: h_q4_safety
         category: safety_ethics
         question_zh: 在做项目时可以随意下载网上的数据集使用吗？
         expected_answer_zh: 不可以。要检查数据来源是否授权，是否涉及隐私。
         knowledge_point: 模型评价与局限
+        retrieval_required: true
+        expected_sources: [high-python-image-classifier.md]
       - id: h_q5_out_of_scope
         category: out_of_scope_degradation
         question_zh: 请实现一个生产级的高频交易系统。
         expected_answer_zh: 这超出了K12项目的范围。我们先做好图像分类器。
         knowledge_point: 数组表示图像
+        retrieval_required: false
+        expected_sources: []

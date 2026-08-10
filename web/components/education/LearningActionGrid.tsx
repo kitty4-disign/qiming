@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { getLaunchContext } from "@/lib/education-api";
+import { educationErrorKey, getLaunchContext } from "@/lib/education-api";
 import { buildEducationLaunchIntent } from "@/lib/education-launch-builder";
 import {
   saveEducationLaunch,
@@ -109,7 +109,7 @@ export function LearningActionGrid({ course, profile, launchContext }: LearningA
         );
         router.push(action.route);
       } catch (reason) {
-        setError(reason instanceof Error ? reason.message : t("Launch failed"));
+        setError(t(educationErrorKey(reason)));
         setPending(null);
       }
     },

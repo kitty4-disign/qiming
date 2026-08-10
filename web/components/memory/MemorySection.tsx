@@ -144,18 +144,18 @@ interface SurfaceMeta {
 const SURFACE_META: Record<Surface, SurfaceMeta> = {
   chat: { icon: MessageSquare, label: "Chat" },
   notebook: { icon: NotebookPen, label: "Notebook" },
-  quiz: { icon: ClipboardList, label: "题库" },
+  quiz: { icon: ClipboardList, label: "Question bank" },
   kb: { icon: BookOpen, label: "Knowledge base" },
   book: { icon: Library, label: "Book" },
   partner: { icon: Bot, label: "Partner" },
-  cowriter: { icon: PenLine, label: "Co-writer" },
+  cowriter: { icon: PenLine, label: "Co-Writer" },
 };
 
 const L3_LABELS: Record<string, string> = {
-  recent: "近期总结",
-  profile: "用户画像",
-  scope: "知识 Scope",
-  preferences: "偏好",
+  recent: "Recent summary",
+  profile: "User profile",
+  scope: "Knowledge scope",
+  preferences: "Preferences",
 };
 
 // Entity refs in L2/L3 docs are written as `<surface>:<entity_id>`.
@@ -305,11 +305,11 @@ export default function MemorySection({
       const data = (await res.json()) as OverviewResponse;
       setOverview(data);
     } catch (e) {
-      setToast(e instanceof Error ? e.message : "Failed to load overview");
+      setToast(e instanceof Error ? e.message : t("Failed to load overview"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadOverview();
@@ -332,9 +332,9 @@ export default function MemorySection({
       setContent(md);
       setEditorValue(md);
     } catch (e) {
-      setToast(e instanceof Error ? e.message : "Failed to load document");
+      setToast(e instanceof Error ? e.message : t("Failed to load document"));
     }
-  }, []);
+  }, [t]);
 
   const saveDoc = useCallback(async () => {
     if (!selected) return;
@@ -685,11 +685,11 @@ export function L1View({
       const data = (await res.json()) as SnapshotResponse;
       setSnapshot(data);
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Failed to load snapshot");
+       onToast(e instanceof Error ? e.message : t("Failed to load snapshot"));
     } finally {
       setLoadingSnapshot(false);
     }
-  }, [surface, onToast]);
+  }, [surface, onToast, t]);
 
   const loadChanges = useCallback(async () => {
     setLoadingChanges(true);
@@ -700,11 +700,11 @@ export function L1View({
       const data = (await res.json()) as ChangesResponse;
       setChanges(data.changes);
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Failed to load changes");
+       onToast(e instanceof Error ? e.message : t("Failed to load changes"));
     } finally {
       setLoadingChanges(false);
     }
-  }, [surface, onToast]);
+  }, [surface, onToast, t]);
 
   const loadKbQueries = useCallback(async () => {
     if (surface !== "kb") return;
@@ -714,11 +714,11 @@ export function L1View({
       const data = (await res.json()) as KbQueriesResponse;
       setKbQueries(data.events);
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Failed to load queries");
+       onToast(e instanceof Error ? e.message : t("Failed to load queries"));
     } finally {
       setLoadingQueries(false);
     }
-  }, [surface, onToast]);
+  }, [surface, onToast, t]);
 
   useEffect(() => {
     setSnapshot(null);
@@ -801,7 +801,7 @@ export function L1View({
                 active={surface === s}
                 onClick={() => onSurfaceChange(s)}
                 icon={meta.icon}
-                label={meta.label}
+                label={t(meta.label)}
               />
             );
           })}
@@ -1089,7 +1089,7 @@ function EntityRow({ surface, ent, focused, pendingKind, t }: EntityRowProps) {
     <li
       id={entityAnchorId(ref)}
       data-entity-ref={ref}
-      title={t("Open in {{label}}", { label: meta.label })}
+      title={t("Open in {{label}}", { label: t(meta.label) })}
     >
       {url ? (
         <Link href={url} className={rowClass}>
@@ -1308,7 +1308,7 @@ function DocList({ title, rows, selected, onSelect }: DocListProps) {
                 className="flex-1 text-left"
               >
                 <span className="font-medium text-[var(--foreground)]">
-                  {labelFor(row)}
+                  {t(labelFor(row))}
                 </span>
                 <span className="ml-2 text-[11px] text-[var(--muted-foreground)]">
                   {row.entry_count} ·{" "}
@@ -1357,10 +1357,10 @@ function DocPane({
       <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2">
         <span className="text-[14px] font-medium text-[var(--foreground)]">
           {selected.layer} ·{" "}
-          {labelFor({
+          {t(labelFor({
             layer: selected.layer,
             key: selected.key,
-          } as DocOverview)}
+          } as DocOverview))}
         </span>
         <div className="flex items-center gap-2">
           <button

@@ -194,7 +194,7 @@ class WeixinChannel(BaseChannel):
         if not state_file.exists():
             return False
         try:
-            data = json.loads(state_file.read_text())
+            data = json.loads(state_file.read_text(encoding="utf-8"))
             self._token = data.get("token", "")
             self._get_updates_buf = data.get("get_updates_buf", "")
             context_tokens = data.get("context_tokens", {})
@@ -233,7 +233,7 @@ class WeixinChannel(BaseChannel):
                 "typing_tickets": self._typing_tickets,
                 "base_url": self.config.base_url,
             }
-            state_file.write_text(json.dumps(data, ensure_ascii=False))
+            state_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
     # ------------------------------------------------------------------
     # HTTP helpers  (matches api.ts buildHeaders / apiFetch)

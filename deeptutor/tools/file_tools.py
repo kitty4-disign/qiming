@@ -249,6 +249,7 @@ class ListDirTool(_WorkspaceTool):
                 total += 1
                 if len(items) < cap:
                     rel = item.relative_to(dp)
+                    rel = rel.as_posix()
                     items.append(f"{rel}/" if item.is_dir() else str(rel))
             if not items and total == 0:
                 return ToolResult(content=f"Directory {path} is empty")

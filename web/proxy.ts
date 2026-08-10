@@ -62,8 +62,8 @@ export function proxy(req: NextRequest): NextResponse {
 export const config = {
   // Run on every request except Next.js internals and the favicon. The /api/*
   // and /ws/* paths are explicitly handled above (rewritten to the backend);
-  // the browser's /_next/image optimizer requests are excluded here, while the
-  // optimizer's loopback fetch for the source image (e.g. /logo.png) is let
-  // through the auth gate by isAuthExempt.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // public source images (e.g. /logo.png) are let through the auth gate by
+  // isAuthExempt. Excluding all /_next/* paths also keeps the dev HMR WebSocket
+  // out of the request proxy.
+  matcher: ["/((?!_next/|favicon.ico).*)"],
 };

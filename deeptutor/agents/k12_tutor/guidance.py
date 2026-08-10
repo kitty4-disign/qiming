@@ -111,12 +111,42 @@ _SAFETY_RULE = {
 _ACTIVITY_MODE_INSTRUCTIONS = {
     "lesson": {
         "zh": (
-            "本轮为对话教学：先用 mastery_status 读取当前进度，再只推进一个知识点；"
-            "每轮结束只提一个清晰问题，避免一次抛出大量任务。"
+            "本轮为对话教学，按以下节奏推进：先用 mastery_status 读取当前进度；"
+            "对一个知识点先讲解（概念 + 例子），再通过一个小练习确认理解，"
+            "最后只提一个清晰问题（用 ask_user 呈现），本轮即结束。"
+            "不要连续出考试题，不要在一次回复里抛出大量任务；"
+            "学生回答后（在下一轮）先批改并给出即时反馈，必要时针对错误补讲，"
+            "再验证；掌握后总结该知识点，再进入下一个。\n"
+            "数据可见性（硬性要求）：凡是要学生阅读、比对或计算的具象数据"
+            "（数组 / 矩阵 / 代码 / 表格 / 像素值），必须先把它完整地写在回复正文里"
+            "（用代码块或逐行文本），再出 ask_user 卡片；绝不允许引用数组下标或某个值"
+            "却不先展示那份数据本身。\n"
+            "高中阶段练习应合理混合题型，不要只出选择题：可包括选择题、代码阅读、"
+            "预测代码输出、简短编程、错误分析、用自己的话解释、以及实际案例"
+            "（例如图像分类）中的应用。例如讲‘数组表示图像’时，先展示灰度二维数组"
+            "例子并解释 0/255 的含义，再让学生判断‘255 在灰度图里表示更亮还是更暗’，"
+            "回答并反馈后再逐步进入 Python 代码。"
         ),
         "en": (
-            "This turn is a lesson: call mastery_status first, then advance only one "
-            "knowledge point; end with a single clear question, not a list of tasks."
+            "This turn is a lesson. Pace it as: call mastery_status first; then for one "
+            "knowledge point TEACH (concept + example), confirm understanding with a small "
+            "practice, and end with exactly ONE clear question (presented via ask_user) — "
+            "this turn then ends. Do not chain quiz after quiz, and do not dump many tasks "
+            "in one reply; after the learner answers (on the next turn) grade it and give "
+            "immediate feedback, re-teach the specific error when needed, then verify again; "
+            "once mastered, summarise the point and move to the next one.\n"
+            "Data visibility (hard rule): whenever the learner must read, compare, or compute "
+            "over concrete data (arrays / matrices / code / tables / pixel values), write that "
+            "data verbatim into your reply body (code block or line-by-line text) BEFORE the "
+            "ask_user card; never reference an index or value without first displaying the "
+            "data itself.\n"
+            "For high school, mix question types instead of only multiple choice: choice "
+            "questions, code reading, predicting code output, short programming tasks, "
+            "error analysis, explain-in-your-own-words, and applying the idea to a real "
+            "case (e.g. image classification). For 'arrays represent images', first show a "
+            "grayscale 2-D array example and explain what 0/255 mean, then ask the learner "
+            "whether 255 means brighter or darker, give feedback on the answer, then ease "
+            "into Python code."
         ),
     },
     "quiz": {
@@ -162,6 +192,8 @@ def render_k12_guidance(
     *,
     language: str,
     activity_mode: str = "lesson",
+    target_knowledge_point_name: str = "",
+    target_knowledge_point_id: str = "",
 ) -> str:
     lang = "zh" if str(language).lower().startswith("zh") else "en"
     interests_default = "尚未填写" if lang == "zh" else "not provided"
@@ -177,6 +209,13 @@ def render_k12_guidance(
     safety = _SAFETY_RULE[lang]
     mode = activity_mode if activity_mode in _ACTIVITY_MODE_INSTRUCTIONS else "lesson"
     mode_instruction = _ACTIVITY_MODE_INSTRUCTIONS[mode][lang]
+    target_context = ""
+    if target_knowledge_point_name:
+        target_label = "本轮目标知识点" if lang == "zh" else "Target knowledge point"
+        target_context = (
+            f"{target_label}: {target_knowledge_point_name}"
+            f" ({target_knowledge_point_id})\n"
+        )
 
     if lang == "zh":
         return (
@@ -188,6 +227,7 @@ def render_k12_guidance(
             f"教学策略：{policy}\n"
             f"活动模式：{mode}\n"
             f"{mode_instruction}\n"
+            f"{target_context}"
             f"{safety}"
         )
 
@@ -201,5 +241,6 @@ def render_k12_guidance(
         f"Teaching strategy: {policy}\n"
         f"Activity mode: {mode}\n"
         f"{mode_instruction}\n"
+        f"{target_context}"
         f"{safety}"
     )

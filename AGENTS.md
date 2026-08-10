@@ -58,6 +58,7 @@ Multi-stage pipelines that own the turn:
 | Capability       | Stages                                                |
 | ---------------- | ----------------------------------------------------- |
 | `chat`           | exploring → responding (single agentic loop, default) |
+| `k12_tutor`      | age-adaptive K12 tutoring (capability shim over the chat loop + mastery tools) |
 | `mastery_path`   | responding (Guided Learning — chat loop + mastery tools, gated per topic type) |
 | `deep_solve`     | planning → reasoning → writing                        |
 | `deep_question`  | ideation → generation                                 |

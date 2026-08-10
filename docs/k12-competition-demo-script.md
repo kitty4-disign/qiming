@@ -81,8 +81,7 @@
 - 能力标签切换为可视化能力，复用既有 `visualize` 管线。
 - 生成带标注步骤的 HTML 交互讲解，无自动播放音频。
 - 讲解内容围绕当前课程主题（图像特征 / 训练集）。
-
-> **M0 基线状态（待 M2 修复）：** 当前 `education-launch-adapter.ts` 中动画的 `style_hint` 为静态英文 `"K12 interactive explanation with labeled steps and noautoplay audio"`，未按学段（小学/初中/高中）生成差异化样式提示。M2 将改为由学段策略生成 `style_hint`。
+- `style_hint` 按学段差异化生成（M2 已完成）：小学低年级以大图形、少量标签、单步变化为主；小学高年级以带标注的因果流程图为主；初中允许数据/特征/参数小实验；高中允许公式、伪代码、复杂度分析。
 
 **备用**：截图 `k12-animation.png`，录屏 `animation.mp4`。
 
@@ -96,17 +95,16 @@
 
 1. 返回 `/education`。
 2. 在「趣味测验」动作卡片上点击「打开」。
-3. 页面跳转到 `/home`，能力切换为 `deep_question`（测验）。
+3. 页面跳转到 `/home`，能力切换为 `K12 AI Tutor`（`activity_mode=quiz`）。
 4. 确认配置：题目数量为 3，难度为 `auto`，题型为「选择题 + 概念题」。
 5. 点击发送，完成三题并提交。
 
 **预期可见结果**
 
-- 能力标签为测验，题目数量为 3。
-- 提交后出现即时反馈与正确答案解析，错题进入错题本。
+- 能力标签为 `K12 AI Tutor`，`activity_mode` 为 `quiz`（M1 已完成：测验不再路由到独立 `deep_question`，而是走 `k12_tutor` + `mastery_quiz` → `mastery_grade` 闭环）。
+- 提交后出现即时反馈与正确答案解析，错题写入课程稳定 `mastery_path_id`（`edu_k12_ai_primary_upper_image_recognition`）下的错题本。
 - 题目围绕图像识别核心知识点（像素、特征、训练测试集）。
-
-> **M0 基线状态（待 M1 修复）：** 当前 `education-launch-adapter.ts` 将 quiz 路由到独立的 `deep_question` 能力，未接入课程的稳定 `mastery_path_id`。测验结果不会写回该课程的掌握度路径，个性化闭环在此断开。M1 将把 K12 测验映射到 `k12_tutor`（`activity_mode="quiz"`），通过 `mastery_status` → `mastery_quiz` → `ask_user` → `mastery_grade` 流程真正更新掌握度。
+- 测验完成后回到 `/education`，掌握度计数应立即反映本次测验结果（已掌握 / 学习中 / 新知识数量发生变化）。
 
 **备用**：截图 `k12-quiz.png`，录屏 `quiz.mp4`。
 
@@ -123,11 +121,10 @@
 
 **预期可见结果**
 
-- 掌握度面板显示已掌握、学习中、新知识点的计数（复用 `fetchMasteryMap`）。
-- 使用稳定的学习路径 ID `edu_k12_ai_primary_upper_image_recognition`。
-- 推荐下一知识点（如「训练集与测试集」）。
-
-> **M0 基线状态（待 M1 修复）：** `MasterySummary.tsx` 当前仅展示「已掌握 / 学习中 / 新知识」三项计数，**未展示**演示文档声称的「下一知识点推荐」。M1 将新增 `RecommendedNextStep.tsx` 组件，调用确定性推荐器（`recommender.py`）展示具体知识点名称、推荐活动、推荐理由和证据，并通过 `LearningTimeline.tsx` 展示最近学习事件。
+- 掌握度面板显示已掌握、学习中、新知识点的计数（M1 已完成：通过 `GET /api/v1/education/dashboard/{course_id}` 一次性返回 `mastery_summary`，复用既有 `fetchMasteryMap` 的稳定学习路径 ID `edu_k12_ai_primary_upper_image_recognition`）。
+- `RecommendedNextStep` 组件展示确定性推荐器（`deeptutor/education/recommender.py`）输出的下一知识点名称、推荐活动、推荐理由（含 `reason_code`，如 `next_new_point` / `weak_point`）与证据，不再是简单的计数面板（M1 已完成）。
+- `LearningTimeline` 展示最近学习事件（测验完成、动画完成等），可与掌握度变化相互印证。
+- 测验答错后再次进入工作台，推荐应切换为该薄弱知识点的 `weak_point` 推荐（M1 验收测试 `test_m1_acceptance.py` 覆盖此路径）。
 
 **备用**：截图 `k12-mastery.png`，录屏 `mastery.mp4`。
 
@@ -142,25 +139,32 @@
 1. 点击工作台顶部「编辑画像」图标按钮。
 2. 将学段改为「高中」，年级改为「十一年级」，教材改为 `Python人工智能项目`（`k12-ai-high`）。
 3. 保存画像。
-4. 在「编程实践」动作卡片上点击「打开」。
-5. 页面跳转到 `/home`，能力为 `K12 AI Tutor`，工具仅启用 `code_execution`。
+4. 在「编程实践」动作卡片上点击「打开」，跳转到独立编程实验室页面 `/education/lab/{courseId}/{taskId}`（M3 已完成：不再是 `/home` + `code_execution` 工具，而是专用 `CodingLab` 组件）。
+5. 阅读任务说明与初始代码框架，在代码编辑器中实现 `extract_features` 与 `nearest_centroid`。
+6. 点击「运行」执行可见测试与隐藏测试，查看通过情况。
+7. 如卡住，点击「获取提示」查看渐进提示（首次仅给思路，不直接给答案）。
 
 **预期可见结果**
 
-- 高中画像下课程切换为「从零实现图像分类器」。
-- 编程实践仅启用代码执行工具，草稿提示「先给我一个可运行的代码框架」。
-- 导师策略切换为准确术语、算法复杂度、可运行 Python、误差与局限分析，与小学高年级明显不同。
+- 高中画像下课程切换为「从零实现图像分类器」，编程任务为 `image-features-nearest-centroid`（图像特征最近邻分类）。
+- 编程实验室页面独立于 `/home`，提供代码编辑器、标准输入框、运行按钮、可见测试结果（含期望输出对比）、隐藏测试通过计数、渐进提示按钮。
+- 学生代码在隔离沙箱中运行（M3 §8.1：超时 15s、内存 256MB、输出 8000 字符上限，禁止 `socket`/`subprocess`/`os` 等危险导入），沙箱不可用时返回 HTTP 503 而非伪造成功。
+- 隐藏测试的期望输出永远不会返回给前端（防作弊），`CodingLab.tsx` 仅展示 `hidden_passed / hidden_total` 计数。
+- 全部测试通过后页面提示「全部测试通过！已记录完成」，并通过 `POST /api/v1/education/events` 记录一次 `coding` 完成事件（仅作学习证据，不改变掌握度，符合 M2 边界）。
+- 高中 guidance 策略切换为准确术语、算法复杂度、可运行 Python、误差与局限分析，与小学高年级明显不同。
 
 **备用**：截图 `k12-high-coding.png`，录屏 `high-coding.mp4`。
 
-**评分映射**：同一系统跨学段适配，高中阶段提供可运行代码与工程权衡，体现「分层难度 + 编程实践」。
+**评分映射**：同一系统跨学段适配，高中阶段提供独立编程实验室、隔离沙箱、可见/隐藏测试与渐进提示，体现「分层难度 + 编程实践 + 自动评测」。
 
 ---
 
 ## 验收清单
 
 - [ ] 五分钟内完成全部六个片段，无报错。
-- [ ] 每个动作卡片都跳转到既有 DeepTutor 能力，未触发任何新底层实现。
+- [ ] 课堂、动画、测验三个动作卡片跳转到既有 DeepTutor 能力（`k12_tutor` / `visualize`），编程实践跳转到独立 `CodingLab` 页面。
 - [ ] 小学高年级与高中两个画像的策略、难度、工具配置存在可见差异。
 - [ ] 知识库缺失时仅显示警告，不崩溃。
+- [ ] 测验完成后掌握度计数立即变化，且推荐器能切换到 `weak_point` 推荐。
+- [ ] 编程实验室隐藏测试期望输出不泄露给前端，沙箱不可用时返回 503 而非伪造成功。
 - [ ] 全程未出现索取私人信息的引导。

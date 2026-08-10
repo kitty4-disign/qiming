@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -12,6 +13,7 @@ from deeptutor.education.activity_models import ActivityCompletion, LearningEven
 from deeptutor.services.path_service import get_path_service
 
 _MAX_EVENTS = 500
+_WRITE_LOCK = threading.Lock()
 
 
 class EducationActivityService:
@@ -48,6 +50,10 @@ class EducationActivityService:
 
     def record(self, completion: ActivityCompletion) -> LearningEvent:
         """Record an event, enforcing idempotency and the 500-event cap."""
+        with _WRITE_LOCK:
+            return self._record_locked(completion)
+
+    def _record_locked(self, completion: ActivityCompletion) -> LearningEvent:
         data = self._load()
         events: list[dict[str, Any]] = data.get("events", [])
         idempotency_key = completion.idempotency_key
@@ -69,6 +75,7 @@ class EducationActivityService:
             activity=completion.activity,
             event_type=completion.event_type,
             knowledge_point_id=completion.knowledge_point_id,
+            episode_id=completion.episode_id,
             score=completion.score,
             duration_seconds=completion.duration_seconds,
             idempotency_key=idempotency_key,

@@ -7,14 +7,12 @@ expected outputs are stripped from the response.
 
 from __future__ import annotations
 
-import asyncio
-import time
+import base64
 
 from deeptutor.education.coding_models import (
     CodeRunRequest,
     CodeRunResult,
     CodingTask,
-    TestCase,
     TestCaseResult,
 )
 from deeptutor.education.coding_tasks import get_coding_task
@@ -93,32 +91,33 @@ async def _run_once(
         cpu_seconds=10,
         max_output_chars=_MAX_OUTPUT_CHARS,
     )
+    source_payload = base64.b64encode(source_code.encode("utf-8")).decode("ascii")
+    stdin_payload = base64.b64encode(stdin.encode("utf-8")).decode("ascii")
+    run_command = _build_command(language, source_file)
+
+    # The sidecar root filesystem is read-only. Use an execution-specific tmp
+    # directory and base64 payloads so source/stdin cannot break shell quoting.
+    final_command = "\n".join(
+        (
+            'scratch="$(mktemp -d /tmp/deeptutor-k12.XXXXXX)"',
+            "trap 'rm -rf \"$scratch\"' EXIT",
+            'cd "$scratch"',
+            (
+                'python -c "import base64;'
+                f"open('{source_file}','wb').write(base64.b64decode('{source_payload}'))\""
+            ),
+            (
+                'python -c "import base64,sys;'
+                f"sys.stdout.buffer.write(base64.b64decode('{stdin_payload}'))\" "
+                f"| ({run_command})"
+            ),
+        )
+    )
     request = ExecRequest(
-        command=_build_command(language, source_file),
+        command=final_command,
         workdir="",
         env={},
         limits=limits,
-    )
-    # The sandbox backend writes the source to its workdir. Since we cannot
-    # pre-mount the source as a file here, we embed it into the command via a
-    # heredoc so the sandbox can run it without extra file IO. This keeps the
-    # interface dependency-free.
-    heredoc_command = f"cat > {source_file} <<'DEEPTUTOR_EOF'\n{source_code}\nDEEPTUTOR_EOF\n{request.command}"
-    request = ExecRequest(
-        command=heredoc_command,
-        workdir=request.workdir,
-        env=request.env,
-        limits=request.limits,
-    )
-    # Pass stdin via env so the sandbox doesn't need to manage stdin pipes.
-    # The student code reads from sys.stdin; we emulate that by piping stdin
-    # into the command.
-    final_command = f"{heredoc_command} <<'STDIN_EOF'\n{stdin}\nSTDIN_EOF"
-    request = ExecRequest(
-        command=final_command,
-        workdir=request.workdir,
-        env=request.env,
-        limits=request.limits,
     )
     return await sandbox.run(request, user_id=user_id)
 

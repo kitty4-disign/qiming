@@ -146,8 +146,13 @@ def _terminate(proc: ManagedProcess | None) -> None:
 
 def _stream_output(prefix: str, process: subprocess.Popen[str]) -> None:
     assert process.stdout is not None
+    output_encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
     for line in process.stdout:
-        print(f"  {prefix:<8} {line.rstrip()}", flush=True)
+        message = f"  {prefix:<8} {line.rstrip()}"
+        safe_message = message.encode(output_encoding, errors="backslashreplace").decode(
+            output_encoding
+        )
+        print(safe_message, flush=True)
 
 
 def _spawn(command: list[str], *, cwd: Path, env: dict[str, str], name: str) -> ManagedProcess:

@@ -3,19 +3,15 @@ import type {
   EducationStageLiteral,
   LearningModalityLiteral,
 } from "./education-launch";
+import type { EducationContext } from "./unified-ws";
 
 export interface EducationComposerPreset {
   capability: "k12_tutor" | "deep_question" | "visualize";
   tools: string[];
   knowledgeBases: string[];
   config: Record<string, unknown>;
+  educationContext: EducationContext;
   draft: string;
-  // Surface stage/grade/course/kp so tests and downstream components can assert
-  // that the launch truly carried the learning context (M2 §7.5).
-  stage: EducationStageLiteral;
-  grade: number;
-  courseId: string;
-  knowledgePointId?: string;
   topic: string;
 }
 
@@ -92,9 +88,6 @@ function k12Config(
     course_id: intent.courseId,
     mastery_path_id: intent.masteryPathId,
     activity_mode: activityMode,
-    stage: intent.stage,
-    grade: intent.grade,
-    knowledge_point_id: intent.knowledgePointId ?? "",
   };
 }
 
@@ -163,10 +156,13 @@ export function buildEducationComposerPreset(
   intent: EducationLaunchIntent,
 ): EducationComposerPreset {
   const base = {
-    stage: intent.stage,
-    grade: intent.grade,
-    courseId: intent.courseId,
-    knowledgePointId: intent.knowledgePointId,
+    educationContext: {
+      stage: intent.stage,
+      grade: intent.grade,
+      ...(intent.knowledgePointId
+        ? { knowledge_point_id: intent.knowledgePointId }
+        : {}),
+    },
     topic: intent.topic,
   };
   if (intent.action === "lesson") {
@@ -199,10 +195,6 @@ export function buildEducationComposerPreset(
         render_mode: "html",
         quality: "medium",
         style_hint: ANIMATION_STYLE_HINT[intent.stage],
-        stage: intent.stage,
-        grade: intent.grade,
-        course_id: intent.courseId,
-        knowledge_point_id: intent.knowledgePointId ?? "",
       },
       draft: assembleAnimationDraft(intent),
     };

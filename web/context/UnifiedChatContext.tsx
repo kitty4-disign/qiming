@@ -18,7 +18,12 @@ import {
   readStoredLanguage,
   writeStoredActiveSessionId,
 } from "@/context/app-shell-storage";
-import type { StreamEvent, ChatMessage, LLMSelection } from "@/lib/unified-ws";
+import type {
+  StreamEvent,
+  ChatMessage,
+  EducationContext,
+  LLMSelection,
+} from "@/lib/unified-ws";
 import { UnifiedWSClient } from "@/lib/unified-ws";
 import {
   getSession,
@@ -75,6 +80,7 @@ export interface SendMessageOptions {
   persistUserMessage?: boolean;
   requestSnapshotOverride?: MessageRequestSnapshot;
   bookReferences?: BookReferencePayload[];
+  educationContext?: EducationContext;
   /** Edit-branching: when set, the new user message is inserted as a
    *  sibling under this parent rather than appended to the session tail.
    *  ``null`` means "explicitly attach to the session root". */
@@ -134,6 +140,7 @@ export interface MessageRequestSnapshot {
   language: string;
   attachments?: MessageAttachment[];
   config?: Record<string, unknown>;
+  educationContext?: EducationContext;
   notebookReferences?: NotebookReferencePayload[];
   historyReferences?: HistoryReferencePayload;
   questionNotebookReferences?: QuestionNotebookReferencePayload;
@@ -190,6 +197,7 @@ type Action =
     }
   | { type: "POP_LAST_ASSISTANT"; key: string }
   | { type: "RESTORE_ASSISTANT"; key: string; message: MessageItem }
+  | { type: "RESOLVE_ASK_USER"; key: string }
   | { type: "STREAM_START"; key: string }
   | { type: "STREAM_EVENT"; key: string; event: StreamEvent }
   | {
@@ -402,6 +410,63 @@ function reducer(state: ProviderState, action: Action): ProviderState {
             messages,
             updatedAt: Date.now(),
           },
+        },
+      };
+    }
+    case "RESOLVE_ASK_USER": {
+      // K12 turn boundary: the answered ask_user card's turn already ended,
+      // so no live resolution event arrives from the server. Flip the last
+      // assistant message's card to the resolved state locally (mirrors the
+      // backend's persisted ask_user_resolved event; reloads replay that one).
+      const session = state.sessions[action.key];
+      if (!session) return state;
+      const messages = [...session.messages];
+      const last = messages[messages.length - 1];
+      if (!last || last.role !== "assistant") return state;
+      const events = last.events ?? [];
+      let cardId = "";
+      let turnId = "";
+      for (let i = events.length - 1; i >= 0; i--) {
+        const event = events[i];
+        const meta = (event.metadata ?? {}) as Record<string, unknown>;
+        if (!turnId && typeof event.turn_id === "string" && event.turn_id) {
+          turnId = event.turn_id;
+        }
+        if (event.type === "tool_result") {
+          const toolMeta = meta.tool_metadata;
+          if (
+            toolMeta &&
+            typeof toolMeta === "object" &&
+            (toolMeta as Record<string, unknown>).ask_user
+          ) {
+            cardId =
+              typeof meta.tool_call_id === "string" ? meta.tool_call_id : "";
+            break;
+          }
+        }
+      }
+      if (!cardId) return state;
+      events.push({
+        type: "progress",
+        source: "chat",
+        stage: "",
+        content: "",
+        metadata: {
+          trace_kind: "user_reply",
+          ask_user_resolved: true,
+          ask_user_tool_call_id: cardId,
+        },
+        session_id: session.sessionId ?? "",
+        turn_id: turnId,
+        seq: events.length + 1,
+        timestamp: Date.now(),
+      });
+      messages[messages.length - 1] = { ...last, events };
+      return {
+        ...state,
+        sessions: {
+          ...state.sessions,
+          [action.key]: { ...session, messages, updatedAt: Date.now() },
         },
       };
     }
@@ -817,6 +882,32 @@ function asLLMSelection(value: unknown): LLMSelection | null {
     : null;
 }
 
+function asEducationContext(value: unknown): EducationContext | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  const stage = record.stage;
+  const grade = record.grade;
+  if (
+    (stage !== "primary_lower" &&
+      stage !== "primary_upper" &&
+      stage !== "middle" &&
+      stage !== "high") ||
+    typeof grade !== "number" ||
+    !Number.isInteger(grade)
+  ) {
+    return null;
+  }
+  const knowledgePointId =
+    typeof record.knowledge_point_id === "string"
+      ? record.knowledge_point_id
+      : "";
+  return {
+    stage,
+    grade,
+    ...(knowledgePointId ? { knowledge_point_id: knowledgePointId } : {}),
+  };
+}
+
 function normalizeSelectedBranches(value: unknown): Record<string, number> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const result: Record<string, number> = {};
@@ -893,6 +984,7 @@ function hydrateRequestSnapshot(
   const memoryReferences = asMemoryReferences(stored.memoryReferences);
   const bookReferences = normalizeBookReferences(stored.bookReferences);
   const llmSelection = asLLMSelection(stored.llmSelection);
+  const educationContext = asEducationContext(stored.educationContext);
 
   if (config && Object.keys(config).length) snapshot.config = config;
   if (notebookReferences.length)
@@ -905,6 +997,7 @@ function hydrateRequestSnapshot(
   if (persona) snapshot.persona = persona;
   if (memoryReferences.length) snapshot.memoryReferences = memoryReferences;
   if (llmSelection) snapshot.llmSelection = llmSelection;
+  if (educationContext) snapshot.educationContext = educationContext;
   return snapshot;
 }
 
@@ -925,7 +1018,6 @@ export function UnifiedChatProvider({
     >
   >(new Map());
   const draftCounterRef = useRef(0);
-  const retryTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   // Tracks in-flight regenerate requests so we can restore the popped
   // assistant message if the server rejects the request (e.g. ``regenerate_busy``
   // or ``nothing_to_regenerate``). Keyed by session entry key.
@@ -945,8 +1037,6 @@ export function UnifiedChatProvider({
     () => () => {
       runnersRef.current.forEach(({ client }) => client.disconnect());
       runnersRef.current.clear();
-      retryTimersRef.current.forEach((id) => clearTimeout(id));
-      retryTimersRef.current.clear();
     },
     [],
   );
@@ -1182,30 +1272,8 @@ export function UnifiedChatProvider({
   );
 
   const sendThroughRunner = useCallback(
-    function dispatchToRunner(key: string, msg: ChatMessage, attempt = 0) {
+    function dispatchToRunner(key: string, msg: ChatMessage) {
       const runner = ensureRunner(key);
-      if (!runner.client.connected) {
-        if (attempt >= 10) {
-          console.error("WebSocket failed to connect after retries");
-          dispatch({ type: "STREAM_END", key, status: "failed" });
-          // Surfaces the dead-after-N-retries case (different code path
-          // from the close-while-streaming handler above). Same user
-          // mental model, so same toast copy.
-          notify(
-            i18n.t(
-              "Couldn't reach the server. Please check your connection and retry.",
-            ),
-            { tone: "error", durationMs: 6000 },
-          );
-          return;
-        }
-        const timerId = setTimeout(() => {
-          retryTimersRef.current.delete(timerId);
-          dispatchToRunner(key, msg, attempt + 1);
-        }, 200);
-        retryTimersRef.current.add(timerId);
-        return;
-      }
       runner.client.send(msg);
     },
     [ensureRunner],
@@ -1404,6 +1472,8 @@ export function UnifiedChatProvider({
           mime_type: a.mime_type,
         })) ?? msgAttachments;
       const effectiveConfig = config ?? replaySnapshot?.config;
+      const effectiveEducationContext =
+        replaySnapshot?.educationContext ?? options?.educationContext;
       const effectiveNotebookReferences =
         replaySnapshot?.notebookReferences ?? notebookReferences;
       const effectiveHistoryReferences =
@@ -1422,6 +1492,9 @@ export function UnifiedChatProvider({
           : {}),
         ...(effectiveConfig && Object.keys(effectiveConfig).length > 0
           ? { config: effectiveConfig }
+          : {}),
+        ...(effectiveEducationContext
+          ? { educationContext: effectiveEducationContext }
           : {}),
         ...(effectiveNotebookReferences?.length
           ? { notebookReferences: effectiveNotebookReferences }
@@ -1521,6 +1594,9 @@ export function UnifiedChatProvider({
         ...(effectiveTurnConfig && Object.keys(effectiveTurnConfig).length > 0
           ? { config: effectiveTurnConfig }
           : {}),
+        ...(effectiveEducationContext
+          ? { education_context: effectiveEducationContext }
+          : {}),
         // Send ``parent_message_id`` only when we have a real (positive)
         // server id to chain under, or when the caller explicitly pinned
         // a parent (incl. ``null`` for editing the session's first
@@ -1572,12 +1648,68 @@ export function UnifiedChatProvider({
       const pendingAskUser = session
         ? hasPendingAskUserInMessages(session.messages, turnId)
         : false;
-      // Only meaningful while a turn is live. A paused ask_user turn can be
+      // Only meaningful while a card is live. A paused ask_user turn can be
       // silent long enough for the socket to reconnect, so allow submission
-      // whenever the unresolved card and active turn id are still present.
-      if (!session || !turnId || (!session.isStreaming && !pendingAskUser)) {
+      // whenever the unresolved card is still present.
+      if (!session || (!turnId && !pendingAskUser)) {
         return;
       }
+
+      // K12 turn boundary: the teaching turn ENDS at its question card (it
+      // does not stay paused). When the turn is no longer streaming, the
+      // learner's answer starts a NEW tutor turn with a fresh round budget —
+      // the backend grades the persisted pending question via mastery_grade
+      // and continues the lesson. This is the same start_turn protocol as a
+      // normal message, so the answer appears as its own user bubble.
+      if (!turnId || !session.isStreaming) {
+        if (!pendingAskUser) return;
+        let text = "";
+        if (typeof reply === "string") {
+          text = reply;
+        } else if (Array.isArray(reply.answers) && reply.answers.length > 0) {
+          text = reply.answers
+            .map((a) => a.text || "(skipped)")
+            .filter((s) => s !== "(skipped)")
+            .join(" | ");
+        } else if (typeof reply.text === "string") {
+          text = reply.text;
+        }
+        if (!text.trim()) text = "(skipped)";
+        // Flip the answered card to its resolved state locally (the old
+        // turn already ended, so no live server event will arrive).
+        dispatch({ type: "RESOLVE_ASK_USER", key });
+        const visible = buildVisiblePath(
+          session.messages,
+          session.selectedBranches,
+        ).messages;
+        const tipId = tipMessageId(visible);
+        dispatch({
+          type: "ADD_USER_MSG",
+          key,
+          content: text,
+          capability: session.activeCapability || "chat",
+          parentMessageId: tipId,
+        });
+        dispatch({ type: "STREAM_START", key });
+        sendThroughRunner(key, {
+          type: "start_turn",
+          content: text,
+          capability: session.activeCapability || "chat",
+          session_id: session.sessionId,
+          language: session.language || readStoredLanguage(),
+          tools: session.enabledTools,
+          knowledge_bases: session.knowledgeBases,
+          ...(session.llmSelection ? { llm_selection: session.llmSelection } : {}),
+          // Always sent (possibly ""): an explicit persona key is the
+          // backend's signal to persist the value ("" = Default).
+          persona: session.personaSelection || "",
+          // Omit config / education_context: the backend reuses the session's
+          // stored K12 preferences (course config, education context) for the
+          // follow-up turn.
+        });
+        return;
+      }
+
       const message: import("@/lib/unified-ws").SubmitUserReplyMessage = {
         type: "submit_user_reply",
         turn_id: turnId,

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { CourseOverview } from "@/components/education/CourseOverview";
 import { LearningActionGrid } from "@/components/education/LearningActionGrid";
+import { LearningEvidenceCard } from "@/components/education/LearningEvidenceCard";
 import { LearningTimeline } from "@/components/education/LearningTimeline";
 import { MasterySummary } from "@/components/education/MasterySummary";
 import { RecommendedNextStep } from "@/components/education/RecommendedNextStep";
@@ -91,6 +92,9 @@ export function EducationDashboard({ catalog, profile }: EducationDashboardProps
   const recommendation = dashboard?.recommendation ?? null;
   const recentEvents = dashboard?.recent_events ?? [];
   const masterySummary = dashboard?.mastery_summary ?? null;
+  const learningEvidence = dashboard?.learning_evidence ?? null;
+  const teachingDecision = dashboard?.teaching_decision ?? null;
+  const dashboardLoading = dashboardData?.courseId !== courseId;
 
   return (
     <div className="min-w-0">
@@ -198,6 +202,13 @@ export function EducationDashboard({ catalog, profile }: EducationDashboardProps
             </div>
           )}
           <LearningActionGrid course={course} profile={currentProfile} launchContext={launchContext} />
+          <LearningEvidenceCard
+            evidence={learningEvidence}
+            decision={teachingDecision}
+            loading={dashboardLoading}
+            textbookTitle={isChinese ? textbook.title_zh : textbook.title_en}
+            courseTitle={isChinese ? course.title_zh : course.title_en}
+          />
           <LearningTimeline events={recentEvents} />
         </>
       )}

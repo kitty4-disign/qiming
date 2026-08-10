@@ -10,11 +10,13 @@ Uses a fake sandbox so tests run without a real sandbox backend. Verifies:
 from __future__ import annotations
 
 import asyncio
+import base64
+import re
 from typing import Sequence
 
 import pytest
 
-from deeptutor.education.code_runner import CodeRunError, get_hint, run_student_code
+from deeptutor.education.code_runner import CodeRunError, _run_once, get_hint, run_student_code
 from deeptutor.education.coding_models import CodeRunRequest
 from deeptutor.education.coding_tasks import get_coding_task
 from deeptutor.services.sandbox import ExecResult, IsolationLevel
@@ -31,26 +33,37 @@ class _FakeSandbox:
         return self.is_available
 
     async def run(self, request: ExecRequest, *, user_id: str) -> ExecResult:
+        payloads = re.findall(r"b64decode\('([^']*)'\)", request.command)
+        decoded = "\n".join(base64.b64decode(payload).decode("utf-8") for payload in payloads)
         # Detect infinite loop source → simulate timeout.
-        if "while True" in request.command:
+        if "while True" in decoded:
             return ExecResult(timed_out=True, exit_code=124)
         # Detect forbidden code that slipped past validation → simulate rejection.
         if "import socket" in request.command:
             return ExecResult(exit_code=1, stderr="ImportError: socket blocked")
         # Distinguish correct vs starter code by checking if extract_features
         # is actually implemented (starter returns [0.0, 0.0, 0.0]).
-        is_correct = "sum(row) / len(row)" in request.command
+        is_correct = "sum(row) / len(row)" in decoded
         if is_correct:
-            if "0.1 0.2 0.1" in request.command:
+            if "0.1 0.2 0.1" in decoded:
                 return ExecResult(stdout="A\n", exit_code=0)
-            if "0.9 0.8 0.9" in request.command:
+            if "0.9 0.8 0.9" in decoded:
                 return ExecResult(stdout="B\n", exit_code=0)
-            if "0.3 0.3 0.3" in request.command:
+            if "0.3 0.3 0.3" in decoded:
                 return ExecResult(stdout="A\n", exit_code=0)
-            if "0.6 0.6 0.6" in request.command:
+            if "0.6 0.6 0.6" in decoded:
                 return ExecResult(stdout="B\n", exit_code=0)
         # Starter/wrong code always returns A.
         return ExecResult(stdout="A\n", exit_code=0)
+
+
+class _CaptureSandbox:
+    def __init__(self) -> None:
+        self.request: ExecRequest | None = None
+
+    async def run(self, request: ExecRequest, *, user_id: str) -> ExecResult:
+        self.request = request
+        return ExecResult(stdout="ok\n", exit_code=0)
 
 
 _CORRECT_CODE = """import sys
@@ -122,6 +135,25 @@ def _request(source: str) -> CodeRunRequest:
         language="python",
         source_code=source,
     )
+
+
+@pytest.mark.asyncio
+async def test_command_uses_isolated_writable_tmp_and_encoded_payloads():
+    sandbox = _CaptureSandbox()
+    source = "print('payload cannot break shell')\nDEEPTUTOR_EOF\n"
+    await _run_once(
+        sandbox,
+        language="python",
+        source_code=source,
+        stdin="STDIN_EOF\n",
+        user_id="test-user",
+    )
+    assert sandbox.request is not None
+    command = sandbox.request.command
+    assert "mktemp -d /tmp/deeptutor-k12." in command
+    assert "trap 'rm -rf" in command
+    assert source not in command
+    assert "DEEPTUTOR_EOF" not in command
 
 
 @pytest.mark.asyncio

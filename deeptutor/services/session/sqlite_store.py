@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -18,6 +19,16 @@ from typing import Any
 import uuid
 
 from deeptutor.services.path_service import get_path_service
+
+logger = logging.getLogger(__name__)
+
+
+class LegacyDBMigrationError(RuntimeError):
+    """Raised when the legacy ``data/chat_history.db`` cannot be migrated.
+
+    Aborts startup rather than silently continuing with an empty history
+    store: the legacy file is left untouched so the next launch can retry.
+    """
 
 
 def _json_dumps(value: Any) -> str:
@@ -105,16 +116,73 @@ class SQLiteSessionStore:
         self._initialize()
 
     def _migrate_legacy_db(self, path_service) -> None:
-        """Move the legacy ``data/chat_history.db`` into ``data/user/`` once."""
+        """Migrate the legacy ``data/chat_history.db`` into ``data/user/`` once.
+
+        Idempotent: it only acts when the new DB does not exist yet and a
+        legacy file is present, and once ``self.db_path`` exists the legacy
+        path is ignored on later starts.
+
+        Every migration stages a copy through SQLite's ``Connection.backup()``
+        — never a raw file move — so a legacy ``-wal``/``-shm`` holding
+        committed-but-uncheckpointed data is folded into the destination
+        instead of being orphaned. Migration runs once at startup, so data
+        integrity wins over move-vs-copy speed. Steps:
+
+        1. read the legacy DB through a read-only connection and back it up
+           into a temp file staged in the destination directory;
+        2. validate the staged copy with ``PRAGMA quick_check``;
+        3. atomically publish it under ``self.db_path`` via ``os.replace``;
+        4. best-effort remove the legacy file (a still-open handle on
+           Windows leaves it in place, which is harmless).
+
+        On any failure the temp file is removed, the legacy DB is kept, and
+        a :class:`LegacyDBMigrationError` is raised so the app never starts
+        against an empty history store and the next launch can retry.
+        """
         legacy_path = path_service.project_root / "data" / "chat_history.db"
         if self.db_path.exists() or not legacy_path.exists() or legacy_path == self.db_path:
             return
+        temp_db = self.db_path.parent / f".{self.db_path.name}.{uuid.uuid4().hex}.tmp"
         try:
-            os.replace(legacy_path, self.db_path)
+            try:
+                src = sqlite3.connect(f"{legacy_path.as_uri()}?mode=ro", uri=True)
+                try:
+                    dst = sqlite3.connect(temp_db)
+                    try:
+                        src.backup(dst)
+                    finally:
+                        dst.close()
+                finally:
+                    src.close()
+                check = sqlite3.connect(temp_db)
+                try:
+                    result = check.execute("PRAGMA quick_check").fetchone()
+                finally:
+                    check.close()
+                if result != ("ok",):
+                    raise LegacyDBMigrationError(
+                        "Legacy chat_history.db failed integrity check "
+                        f"({result}); leaving it in place"
+                    )
+                os.replace(temp_db, self.db_path)
+            except (OSError, sqlite3.Error) as exc:
+                raise LegacyDBMigrationError(
+                    f"Could not migrate legacy chat_history.db: {exc}"
+                ) from exc
+        finally:
+            # Cleanup must never mask the original failure: log a warning.
+            try:
+                temp_db.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Could not remove staging file %s", temp_db)
+        # The copy is live at the new location; drop the original if the OS
+        # lets us (a still-open handle may refuse on Windows).
+        try:
+            legacy_path.unlink()
         except OSError:
-            # Fall back to leaving the legacy DB in place if an OS-level move
-            # is not possible; the new DB path will be initialized empty.
-            pass
+            logger.warning(
+                "Legacy chat_history.db migrated but still open; leaving it in place"
+            )
 
     def _initialize(self) -> None:
         with self._connect() as conn:
@@ -849,6 +917,35 @@ class SQLiteSessionStore:
             metadata,
             parent_message_id,
         )
+
+    def _append_message_events_sync(
+        self,
+        message_id: int,
+        events: list[dict[str, Any]],
+    ) -> bool:
+        """Append stream events to a persisted message (e.g. a late
+        ``ask_user_resolved`` marker emitted after the message was saved)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT events_json FROM messages WHERE id = ?", (message_id,)
+            ).fetchone()
+            if row is None:
+                return False
+            current = _json_loads(row["events_json"], []) or []
+            current.extend(events)
+            conn.execute(
+                "UPDATE messages SET events_json = ? WHERE id = ?",
+                (_json_dumps(current), message_id),
+            )
+            conn.commit()
+        return True
+
+    async def append_message_events(
+        self,
+        message_id: int,
+        events: list[dict[str, Any]],
+    ) -> bool:
+        return await self._run(self._append_message_events_sync, message_id, events)
 
     @staticmethod
     def _backfill_import_meta_sync(

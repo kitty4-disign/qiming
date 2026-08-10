@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
 import {
   BarChart3,
@@ -61,7 +62,11 @@ import {
 } from "@/context/UnifiedChatContext";
 import { useAppShell } from "@/context/AppShellContext";
 import type { FilePreviewSource } from "@/components/chat/preview/previewerFor";
-import type { LLMSelection, StreamEvent } from "@/lib/unified-ws";
+import type {
+  EducationContext,
+  LLMSelection,
+  StreamEvent,
+} from "@/lib/unified-ws";
 import {
   extractBase64FromDataUrl,
   readFileAsDataUrl,
@@ -384,6 +389,13 @@ export default function ChatPage() {
   const [previewSource, setPreviewSource] = useState<FilePreviewSource | null>(
     null,
   );
+  // Set when the user picks the K12 学习导师 capability but the current
+  // session has no bound course/mastery path. Without these fields the
+  // backend rejects the turn with "Invalid K12 tutor config: course_id /
+  // mastery_path_id: Field required", so we block the send and surface a
+  // friendly nudge to finish setup via the Learning Space first. See the
+  // guard in the submit handler below.
+  const [k12SetupMissing, setK12SetupMissing] = useState(false);
   // Right-side panels — Activity (floating cards) and Viewer (full sidebar
   // with tabs for file previews + web pages). Each independently togglable
   // and persisted across reloads.
@@ -551,6 +563,7 @@ export default function ChatPage() {
   // Session-loading overlay: shown while navigating from chat-history →
   // session detail. Holds an AbortController so the user can cancel.
   const [sessionLoading, setSessionLoading] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
   const loadAbortRef = useRef<AbortController | null>(null);
   // Bridge ref: ``ChatComposer`` writes a prefill function into this on
   // mount; ``ChatMessageList`` reads it via ``handlePrefillComposer`` so an
@@ -558,6 +571,7 @@ export default function ChatPage() {
   const prefillInputRef = useRef<((text: string) => void) | null>(null);
   const educationLaunchHandledRef = useRef(false);
   const educationLaunchToolsRef = useRef<ToolName[] | null>(null);
+  const educationContextRef = useRef<EducationContext | undefined>(undefined);
   const handlePrefillComposer = useCallback((text: string) => {
     prefillInputRef.current?.(text);
   }, []);
@@ -934,6 +948,7 @@ export default function ChatPage() {
       startSessionLoad(sessionIdParam);
     } else {
       newSession();
+      setSessionReady(true);
     }
     return () => {
       initialLoadRef.current = false;
@@ -945,6 +960,12 @@ export default function ChatPage() {
   useEffect(() => {
     if (sessionIdParam === prevSessionIdParam.current) return;
     prevSessionIdParam.current = sessionIdParam;
+    educationContextRef.current = undefined;
+    setCapabilityConfigs((current) => {
+      const next = { ...current };
+      delete next.k12_tutor;
+      return next;
+    });
     // Abort any in-flight session load from the previous param
     loadAbortRef.current?.abort();
     loadAbortRef.current = null;
@@ -1117,6 +1138,7 @@ export default function ChatPage() {
 
   const handleSelectCapability = useCallback(
     (value: string) => {
+      educationContextRef.current = undefined;
       const cap =
         CAPABILITIES.find((c) => c.value === value) ?? CAPABILITIES[0];
       const storageKey = cap.value || "chat";
@@ -1143,12 +1165,17 @@ export default function ChatPage() {
       // the new capability has its own form that needs explicit confirm.
       setCapabilityConfigConfirmed(false);
       setCapMenuOpen(false);
+      // Clear any stale "K12 setup missing" banner from a prior pick — the
+      // user just chose a different capability, so the warning is no longer
+      // relevant and would only get in the way.
+      setK12SetupMissing(false);
     },
     [capabilityConfigs, setCapability, setKBs, setTools, userEnabledTools],
   );
 
   useEffect(() => {
     if (educationLaunchHandledRef.current) return;
+    if (!sessionReady) return;
     educationLaunchHandledRef.current = true;
     const intent = consumeEducationLaunch();
     if (!intent) return;
@@ -1163,6 +1190,7 @@ export default function ChatPage() {
       ALL_TOOLS.some((item) => item.name === tool),
     );
     educationLaunchToolsRef.current = tools;
+    educationContextRef.current = preset.educationContext;
     setCapabilityConfigs((current) => ({
       ...current,
       [preset.capability]: {
@@ -1186,7 +1214,7 @@ export default function ChatPage() {
       prefillInputRef.current?.(preset.draft);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [setCapability, setKBs, setTools]);
+  }, [sessionReady, setCapability, setKBs, setTools]);
 
   const fileToAttachment = useCallback(
     (f: File): Promise<PendingAttachment> =>
@@ -1488,6 +1516,18 @@ export default function ChatPage() {
 
       if (activeCap.value === "k12_tutor") {
         config = capabilityConfigs.k12_tutor?.config;
+        // K12 requires a bound course and mastery path. The home entry can't
+        // collect these (they come from the Learning Space → course flow),
+        // so we block the turn instead of letting the backend reject it with
+        // "course_id/mastery_path_id: Field required".
+        if (!config?.course_id || !config?.mastery_path_id) {
+          setK12SetupMissing(true);
+          ensureActivityPanelOpen();
+          return;
+        }
+        setK12SetupMissing(false);
+      } else {
+        setK12SetupMissing(false);
       }
 
       if (isQuizMode) {
@@ -1532,6 +1572,7 @@ export default function ChatPage() {
         (attachments.some((a) => a.type === "image")
           ? t("Please analyze the attached image(s).")
           : "");
+      const educationContext = educationContextRef.current;
       // Persona is NOT passed per-call here: it is a session-level
       // preference (state.personaSelection) that sendMessage resolves and
       // sends with every turn.
@@ -1541,11 +1582,12 @@ export default function ChatPage() {
         config,
         notebookReferencesPayload,
         historyReferencesPayload,
-        { bookReferences: bookReferencesPayload },
+        { bookReferences: bookReferencesPayload, educationContext },
         questionNotebookReferencesPayload,
         undefined,
         memoryPayload,
       );
+      educationContextRef.current = undefined;
       shouldAutoScrollRef.current = true;
       setAttachments([]);
       setSelectedBookReferences([]);
@@ -1560,6 +1602,7 @@ export default function ChatPage() {
       activeCap.value,
       bookReferencesPayload,
       capabilityConfigs.k12_tutor?.config,
+      ensureActivityPanelOpen,
       historyReferencesPayload,
       isQuizMode,
       isResearchMode,
@@ -1985,6 +2028,24 @@ export default function ChatPage() {
                 className="mx-3 mb-2 border-y border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
               >
                 {t("Textbook knowledge base is not ready")}
+              </div>
+            )}
+            {k12SetupMissing && (
+              <div
+                role="status"
+                className="mx-3 mb-2 flex flex-wrap items-center gap-2 border-y border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+              >
+                <span className="flex-1">
+                  {t(
+                    "K12 学习导师需要先在「学习空间」选择课程并完成绑定，才能开始对话。",
+                  )}
+                </span>
+                <Link
+                  href="/education"
+                  className="inline-flex shrink-0 items-center rounded-md border border-amber-400 bg-amber-100 px-2 py-1 font-medium text-amber-900 hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900/60"
+                >
+                  {t("前往学习空间")}
+                </Link>
               </div>
             )}
             <ChatComposer

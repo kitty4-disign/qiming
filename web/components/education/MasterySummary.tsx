@@ -58,14 +58,14 @@ export function MasterySummary({
     : map?.counts ?? { mastered: 0, learning: 0, new: 0, total: 0 };
   const metrics = [
     { key: "Mastered", value: counts.mastered, icon: CircleCheck },
-    { key: "Learning", value: counts.learning, icon: Clock3 },
-    { key: "New", value: counts.new, icon: Sparkles },
+    { key: "Mastery Learning", value: counts.learning, icon: Clock3 },
+    { key: "Mastery New", value: counts.new, icon: Sparkles },
   ];
 
   return (
     <section className="border-t border-[var(--border)] py-6" aria-labelledby="mastery-title">
       <h2 id="mastery-title" className="text-sm font-semibold text-[var(--foreground)]">
-        {t("Learning Progress")}
+        {t("Mastery")}
       </h2>
       <div className="mt-3 grid grid-cols-3 divide-x divide-[var(--border)] border-y border-[var(--border)] py-4">
         {metrics.map(({ key, value, icon: Icon }) => (

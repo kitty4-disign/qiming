@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { ModalitySelector } from "@/components/education/ModalitySelector";
 import { StageSegmentedControl } from "@/components/education/StageSegmentedControl";
-import { saveEducationProfile } from "@/lib/education-api";
+import { educationErrorKey, saveEducationProfile } from "@/lib/education-api";
 import { gradesForStage, textbooksForStage } from "@/lib/education-profile";
 import type {
   EducationCatalog,
@@ -97,7 +97,7 @@ export function StudentProfileForm({
       });
       onSaved(saved);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : t("Failed to save Student Profile"));
+      setError(t(educationErrorKey(reason)));
     } finally {
       setSaving(false);
     }

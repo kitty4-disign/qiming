@@ -6,7 +6,11 @@ import { useTranslation } from "react-i18next";
 
 import { EducationDashboard } from "@/components/education/EducationDashboard";
 import { StudentProfileForm } from "@/components/education/StudentProfileForm";
-import { getEducationCatalog, getEducationProfile } from "@/lib/education-api";
+import {
+  educationErrorKey,
+  getEducationCatalog,
+  getEducationProfile,
+} from "@/lib/education-api";
 import type { EducationCatalog, StudentProfile } from "@/lib/education-types";
 
 export default function EducationPage() {
@@ -22,7 +26,7 @@ export default function EducationPage() {
         setCatalog(nextCatalog);
       })
       .catch((reason) => {
-        setError(reason instanceof Error ? reason.message : t("Failed to load AI Classroom"));
+        setError(t(educationErrorKey(reason)));
       });
   }, [t]);
 
@@ -39,7 +43,7 @@ export default function EducationPage() {
 
   if (profile === undefined || catalog === null) {
     return (
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto h-full w-full max-w-6xl overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
         {error ? (
           <div role="alert" className="border-y border-red-300 py-5 text-sm text-red-700">
             <p>{error}</p>
@@ -67,7 +71,7 @@ export default function EducationPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+    <main className="mx-auto h-full w-full max-w-6xl overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
       {profile === null ? (
         <div className="mx-auto max-w-3xl">
           <header className="mb-6 border-b border-[var(--border)] pb-5">

@@ -5,7 +5,9 @@ from __future__ import annotations
 import io
 import os
 from pathlib import Path
+import shlex
 import shutil
+import sys
 import tempfile
 import zipfile
 
@@ -145,7 +147,14 @@ def test_install_tree_skips_disallowed_files_and_rejects_symlinks(
     assert svc.read_skill_file("demo", "references/ok.md") == "fine"
 
     pkg2 = _make_package(tmp_path / "pkg2", frontmatter="name: demo2\ndescription: d")
-    (pkg2 / "link.md").symlink_to(pkg2 / "SKILL.md")
+    try:
+        (pkg2 / "link.md").symlink_to(pkg2 / "SKILL.md")
+    except OSError as exc:
+        # Creating symlinks needs Developer Mode / admin on Windows; when the
+        # host forbids it there is nothing to reject, so skip that subtest.
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip("system does not allow creating symlinks (WinError 1314)")
+        raise
     with pytest.raises(SkillImportError):
         svc.install_tree(pkg2)
     assert not (svc.root / "demo2").exists()  # staged tree never lands
@@ -460,7 +469,10 @@ def test_command_provider_fetch(tmp_path: Path, svc: SkillService) -> None:
 
 
 def test_command_provider_failure_cleans_up() -> None:
-    provider = CommandProvider("myhub", fetch_cmd="false")
+    # ``false`` only exists on POSIX shells; use the interpreter's own stable
+    # non-zero exit so the failure path is identical on every platform.
+    failing_cmd = f'{shlex.quote(sys.executable)} -c "import sys; sys.exit(1)"'
+    provider = CommandProvider("myhub", fetch_cmd=failing_cmd)
     with pytest.raises(HubError):
         provider.fetch("demo")
 

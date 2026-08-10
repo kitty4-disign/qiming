@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -11,6 +12,26 @@ from deeptutor.runtime import launcher
 class _FakeTty:
     def isatty(self) -> bool:
         return True
+
+
+def test_stream_output_escapes_characters_unsupported_by_console(monkeypatch) -> None:
+    printed: list[str] = []
+    process = SimpleNamespace(stdout=["\u2713 Ready\n"])
+
+    monkeypatch.setattr(
+        launcher,
+        "sys",
+        SimpleNamespace(stdout=SimpleNamespace(encoding="ascii")),
+    )
+    monkeypatch.setattr(
+        builtins,
+        "print",
+        lambda message, *, flush: printed.append(message),
+    )
+
+    launcher._stream_output("frontend", process)
+
+    assert printed == [r"  frontend \u2713 Ready"]
 
 
 def test_packaged_web_cache_replaces_next_public_placeholders(tmp_path: Path) -> None:

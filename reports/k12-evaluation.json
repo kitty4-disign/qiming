@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-08-06T08:34:54.656707+00:00",
+  "generated_at": "2026-08-09T08:51:39.537230+00:00",
   "repository": "kitty4-disign/qiming",
   "branch": "feature/k12-competition-v2",
-  "milestone": "M4",
+  "milestone": "FP1-FP6",
   "sections": {
     "deterministic_tests": {
       "type": "deterministic_automated",
       "tool": "pytest",
-      "passed": 1,
+      "passed": 120,
       "failed": 0,
       "errors": 0,
       "exit_code": 0,
-      "raw_summary": "73 passed, 1 warning in 13.00s"
+      "raw_summary": "120 passed, 1 warning in 44.86s"
     },
     "catalog_quality": {
       "type": "deterministic_automated",
@@ -22,7 +22,7 @@
       "all_passed": true
     },
     "benchmark_coverage": {
-      "type": "manual_spot_check",
+      "type": "deterministic_automated",
       "fixture_path": "D:\\ai\\DeepTutor\\tests\\education\\fixtures\\k12_benchmark.yaml",
       "per_stage": {
         "primary_lower": {
@@ -78,7 +78,838 @@
         "safety_ethics"
       ],
       "missing_categories_per_stage": {},
+      "integrity_issues": [],
+      "all_passed": true,
       "note": "Benchmark questions are human-verified; this script checks fixture integrity and coverage, not answer quality."
+    },
+    "rag_retrieval": {
+      "type": "rag_automated",
+      "provider": "llamaindex",
+      "status": "completed",
+      "eligible_cases": 16,
+      "completed_cases": 16,
+      "retrieval_hit_rate": 1.0,
+      "source_traceability_rate": 1.0,
+      "fully_traceable_case_rate": 1.0,
+      "wrong_course_leakage_rate": 0.0,
+      "cases": [
+        {
+          "question_id": "pl_q1_factual",
+          "expected_kb": "k12-ai-primary-lower",
+          "observed_kb": "k12-ai-primary-lower",
+          "expected_sources": [
+            "primary-lower-ai-first-steps.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "红、蓝、红、蓝是一种颜色模式；拍手、跺脚、拍手、跺脚是一种动作模式。智能机器也会在很多例子中寻找相同之处。我们可以把它想成一个认真看卡片的朋友：看过许多猫的图片后，它可能注意到尖耳朵、胡须和身体轮廓；看到新图片时，它会根据以前找到的特点猜一猜。这个比方能帮助我们入门，但机器不会像小朋友一样知道猫会撒娇、会害怕或需要照顾。\n\n人工智能的回答可能出错。如果例子太少、图片不清楚，或者新东西与以前见过的不",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "5dd94599-0ea6-43ba-a22f-4a8db8585bbf",
+              "score": 0.0328
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "## 安全与伦理\n不向应用提交真实姓名、详细住址、学校班级、联系方式、密码、付款信息或未经家人同意的照片。看到令人不舒服的内容、被要求保密或被催促付款时，立即停止并告诉可信任的成年人。使用人工智能完成作品时，要说明得到了工具帮助，不把机器生成的内容冒充全部由自己完成。尊重同学，不用智能工具制作取笑、欺负或冒充他人的内容。\n\n## 参考来源\n- 中华人民共和国教育部：《义务教育课程方案和课程标准（2",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "8899eb6f-cedf-4e92-a7d0-f5b3f41d8d57",
+              "score": 0.0325
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "再看一组卡片：苹果、香蕉、苹果、香蕉。请学生说出下一张最可能是什么，并说明理由。\n\n## 练习\n一、把“洗手”拆成四到六个步骤，与同伴交换执行，找出需要说得更清楚的地方。\n\n二、自己设计一个由颜色或动作组成的模式，让同伴猜下一项；再故意改变一次规律，讨论为什么原来的猜法会失败。\n\n三、判断哪些信息不应该随便告诉智能助手：喜欢的颜色、家庭详细住址、最爱的故事、账号密码、学校班级。说明遇到索取隐私信息",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "fed87c1d-9e6d-4a75-ae9f-f9d84cfea7bd",
+              "score": 0.0325
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "# 聪明机器朋友：AI 启蒙第一课\n## 适用学段\n小学一至三年级。课程不要求识字量以外的技术基础，不使用公式，适合教师带领学生通过说一说、排一排、找一找和画一画完成。\n\n## 学习目标\n完成本课后，学生能够用自己的话说出“指令是告诉机器按顺序做什么”；能够把一个生活任务拆成清楚的先后步骤；能够从一组图片、声音或动作中发现重复出现的模式；知道人工智能会从许多例子中寻找相同之处，但它并不像人一样真正",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "53ac2762-be23-4604-a76b-a71604b7836a",
+              "score": 0.0323
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "pl_q2_age_expression",
+          "expected_kb": "k12-ai-primary-lower",
+          "observed_kb": "k12-ai-primary-lower",
+          "expected_sources": [
+            "primary-lower-ai-first-steps.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "红、蓝、红、蓝是一种颜色模式；拍手、跺脚、拍手、跺脚是一种动作模式。智能机器也会在很多例子中寻找相同之处。我们可以把它想成一个认真看卡片的朋友：看过许多猫的图片后，它可能注意到尖耳朵、胡须和身体轮廓；看到新图片时，它会根据以前找到的特点猜一猜。这个比方能帮助我们入门，但机器不会像小朋友一样知道猫会撒娇、会害怕或需要照顾。\n\n人工智能的回答可能出错。如果例子太少、图片不清楚，或者新东西与以前见过的不",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "5dd94599-0ea6-43ba-a22f-4a8db8585bbf",
+              "score": 0.0328
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "再看一组卡片：苹果、香蕉、苹果、香蕉。请学生说出下一张最可能是什么，并说明理由。\n\n## 练习\n一、把“洗手”拆成四到六个步骤，与同伴交换执行，找出需要说得更清楚的地方。\n\n二、自己设计一个由颜色或动作组成的模式，让同伴猜下一项；再故意改变一次规律，讨论为什么原来的猜法会失败。\n\n三、判断哪些信息不应该随便告诉智能助手：喜欢的颜色、家庭详细住址、最爱的故事、账号密码、学校班级。说明遇到索取隐私信息",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "fed87c1d-9e6d-4a75-ae9f-f9d84cfea7bd",
+              "score": 0.0328
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "## 安全与伦理\n不向应用提交真实姓名、详细住址、学校班级、联系方式、密码、付款信息或未经家人同意的照片。看到令人不舒服的内容、被要求保密或被催促付款时，立即停止并告诉可信任的成年人。使用人工智能完成作品时，要说明得到了工具帮助，不把机器生成的内容冒充全部由自己完成。尊重同学，不用智能工具制作取笑、欺负或冒充他人的内容。\n\n## 参考来源\n- 中华人民共和国教育部：《义务教育课程方案和课程标准（2",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "8899eb6f-cedf-4e92-a7d0-f5b3f41d8d57",
+              "score": 0.0325
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "# 聪明机器朋友：AI 启蒙第一课\n## 适用学段\n小学一至三年级。课程不要求识字量以外的技术基础，不使用公式，适合教师带领学生通过说一说、排一排、找一找和画一画完成。\n\n## 学习目标\n完成本课后，学生能够用自己的话说出“指令是告诉机器按顺序做什么”；能够把一个生活任务拆成清楚的先后步骤；能够从一组图片、声音或动作中发现重复出现的模式；知道人工智能会从许多例子中寻找相同之处，但它并不像人一样真正",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "53ac2762-be23-4604-a76b-a71604b7836a",
+              "score": 0.032
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "pl_q3_misconception",
+          "expected_kb": "k12-ai-primary-lower",
+          "observed_kb": "k12-ai-primary-lower",
+          "expected_sources": [
+            "primary-lower-ai-first-steps.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "红、蓝、红、蓝是一种颜色模式；拍手、跺脚、拍手、跺脚是一种动作模式。智能机器也会在很多例子中寻找相同之处。我们可以把它想成一个认真看卡片的朋友：看过许多猫的图片后，它可能注意到尖耳朵、胡须和身体轮廓；看到新图片时，它会根据以前找到的特点猜一猜。这个比方能帮助我们入门，但机器不会像小朋友一样知道猫会撒娇、会害怕或需要照顾。\n\n人工智能的回答可能出错。如果例子太少、图片不清楚，或者新东西与以前见过的不",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "5dd94599-0ea6-43ba-a22f-4a8db8585bbf",
+              "score": 0.0328
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "再看一组卡片：苹果、香蕉、苹果、香蕉。请学生说出下一张最可能是什么，并说明理由。\n\n## 练习\n一、把“洗手”拆成四到六个步骤，与同伴交换执行，找出需要说得更清楚的地方。\n\n二、自己设计一个由颜色或动作组成的模式，让同伴猜下一项；再故意改变一次规律，讨论为什么原来的猜法会失败。\n\n三、判断哪些信息不应该随便告诉智能助手：喜欢的颜色、家庭详细住址、最爱的故事、账号密码、学校班级。说明遇到索取隐私信息",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "fed87c1d-9e6d-4a75-ae9f-f9d84cfea7bd",
+              "score": 0.0328
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "## 安全与伦理\n不向应用提交真实姓名、详细住址、学校班级、联系方式、密码、付款信息或未经家人同意的照片。看到令人不舒服的内容、被要求保密或被催促付款时，立即停止并告诉可信任的成年人。使用人工智能完成作品时，要说明得到了工具帮助，不把机器生成的内容冒充全部由自己完成。尊重同学，不用智能工具制作取笑、欺负或冒充他人的内容。\n\n## 参考来源\n- 中华人民共和国教育部：《义务教育课程方案和课程标准（2",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "8899eb6f-cedf-4e92-a7d0-f5b3f41d8d57",
+              "score": 0.0325
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "# 聪明机器朋友：AI 启蒙第一课\n## 适用学段\n小学一至三年级。课程不要求识字量以外的技术基础，不使用公式，适合教师带领学生通过说一说、排一排、找一找和画一画完成。\n\n## 学习目标\n完成本课后，学生能够用自己的话说出“指令是告诉机器按顺序做什么”；能够把一个生活任务拆成清楚的先后步骤；能够从一组图片、声音或动作中发现重复出现的模式；知道人工智能会从许多例子中寻找相同之处，但它并不像人一样真正",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "53ac2762-be23-4604-a76b-a71604b7836a",
+              "score": 0.032
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "pl_q4_safety",
+          "expected_kb": "k12-ai-primary-lower",
+          "observed_kb": "k12-ai-primary-lower",
+          "expected_sources": [
+            "primary-lower-ai-first-steps.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "再看一组卡片：苹果、香蕉、苹果、香蕉。请学生说出下一张最可能是什么，并说明理由。\n\n## 练习\n一、把“洗手”拆成四到六个步骤，与同伴交换执行，找出需要说得更清楚的地方。\n\n二、自己设计一个由颜色或动作组成的模式，让同伴猜下一项；再故意改变一次规律，讨论为什么原来的猜法会失败。\n\n三、判断哪些信息不应该随便告诉智能助手：喜欢的颜色、家庭详细住址、最爱的故事、账号密码、学校班级。说明遇到索取隐私信息",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "fed87c1d-9e6d-4a75-ae9f-f9d84cfea7bd",
+              "score": 0.0331
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "## 安全与伦理\n不向应用提交真实姓名、详细住址、学校班级、联系方式、密码、付款信息或未经家人同意的照片。看到令人不舒服的内容、被要求保密或被催促付款时，立即停止并告诉可信任的成年人。使用人工智能完成作品时，要说明得到了工具帮助，不把机器生成的内容冒充全部由自己完成。尊重同学，不用智能工具制作取笑、欺负或冒充他人的内容。\n\n## 参考来源\n- 中华人民共和国教育部：《义务教育课程方案和课程标准（2",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "8899eb6f-cedf-4e92-a7d0-f5b3f41d8d57",
+              "score": 0.0331
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "# 聪明机器朋友：AI 启蒙第一课\n## 适用学段\n小学一至三年级。课程不要求识字量以外的技术基础，不使用公式，适合教师带领学生通过说一说、排一排、找一找和画一画完成。\n\n## 学习目标\n完成本课后，学生能够用自己的话说出“指令是告诉机器按顺序做什么”；能够把一个生活任务拆成清楚的先后步骤；能够从一组图片、声音或动作中发现重复出现的模式；知道人工智能会从许多例子中寻找相同之处，但它并不像人一样真正",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "53ac2762-be23-4604-a76b-a71604b7836a",
+              "score": 0.032
+            },
+            {
+              "title": "primary-lower-ai-first-steps.md",
+              "content": "红、蓝、红、蓝是一种颜色模式；拍手、跺脚、拍手、跺脚是一种动作模式。智能机器也会在很多例子中寻找相同之处。我们可以把它想成一个认真看卡片的朋友：看过许多猫的图片后，它可能注意到尖耳朵、胡须和身体轮廓；看到新图片时，它会根据以前找到的特点猜一猜。这个比方能帮助我们入门，但机器不会像小朋友一样知道猫会撒娇、会害怕或需要照顾。\n\n人工智能的回答可能出错。如果例子太少、图片不清楚，或者新东西与以前见过的不",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-lower\\raw\\primary-lower-ai-first-steps.md",
+              "page": "",
+              "chunk_id": "5dd94599-0ea6-43ba-a22f-4a8db8585bbf",
+              "score": 0.032
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "pu_q1_factual",
+          "expected_kb": "k12-ai-primary-upper",
+          "observed_kb": "k12-ai-primary-upper",
+          "expected_sources": [
+            "primary-upper-image-recognition.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "若确需人物数据，应由教师说明目的、保存时间和删除方式，并取得适当同意。不要把姓名、住址、学校班级、联系方式或位置元数据作为无关特征。展示结果时报告错误和限制，不把分类结果用于给同学贴性格、能力或价值标签。发现某一类表现明显较差时，应暂停使用、补充代表性评估并邀请受影响者反馈。\n\n## 参考来源\n- 中华人民共和国教育部：《义务教育课程方案和课程标准（2022年版）》发布说明。http://www.",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "376b24d5-aba6-4325-9d98-af28c9656774",
+              "score": 0.0325
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "讨论下一轮应补充什么数据，而不是只说“多加图片”。\n\n四、比较两个数据集：甲含九十张白天照片和十张夜间照片；乙含五十张白天照片和五十张夜间照片。若产品将在昼夜都使用，哪一组更适合起步？还需要检查哪些情况？\n\n## 常见误解\n误解一：“像素多就一定识别得准。”分辨率只是条件之一，标签质量、特征、数据覆盖与评价方法同样重要。\n\n误解二：“测试集是训练做完后可以继续拿来练习的题。”一旦根据测试结果反复调",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "1c0a3d63-6523-4278-826a-971aa8beff1c",
+              "score": 0.0325
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "# 图像识别大冒险\n## 适用学段\n小学四至六年级。学生应能阅读简单表格、比较数量，并愿意通过纸笔活动讨论“机器为什么这样判断”。课程不要求编程基础。\n\n## 学习目标\n完成本课后，学生能够解释数字图片由许多像素组成，每个像素记录位置和颜色；能够举例说明颜色、边缘、形状和纹理可以成为图像特征；能够区分训练集与测试集的用途，知道测试图片不能提前混进训练过程；能够用“猜对数量与全部测试数量相比”的思路",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "1ab3d87e-d313-4dba-9a5b-94a14a565b33",
+              "score": 0.0321
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "仅仅保存像素还不够。分类时常需要从像素中提取有帮助的特征。识别红苹果时，整体颜色可能有帮助；分辨圆形交通标志与三角形标志时，边缘方向和轮廓更重要；分辨斑马与白马时，条纹纹理可能提供线索。一个特征在某个任务中有用，不代表在所有任务中都有用。用背景颜色识别动物，在训练图片都拍摄于固定地点时看起来很准，换到新背景就可能失败。\n\n机器学习需要带答案的例子。训练集像练习册，程序利用其中的图片和标签寻找“哪些",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "b33d6178-f49c-4d82-abfc-b58a354c868d",
+              "score": 0.032
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "这展示了“选择与问题相关的特征”比盲目收集特征更重要。\n\n不用电脑的课堂活动“纸卡图像分类器”：四人一组，准备二十四张自制图形卡，包含不同颜色、形状、大小与边框。十二张作为训练卡并贴上教师给定的 A、B 标签，六张用于调整规则，最后六张作为密封测试卡。小组写出不超过三条分类规则，逐张测试并记录预测、正确标签和错误原因。活动结束后交换测试卡，观察换一组画法后规则是否仍有效。所有卡片使用几何图形，不使",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "dc019c27-c9bd-4c6a-b08b-00fa5cfc4fce",
+              "score": 0.0318
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "pu_q2_age_expression",
+          "expected_kb": "k12-ai-primary-upper",
+          "observed_kb": "k12-ai-primary-upper",
+          "expected_sources": [
+            "primary-upper-image-recognition.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "讨论下一轮应补充什么数据，而不是只说“多加图片”。\n\n四、比较两个数据集：甲含九十张白天照片和十张夜间照片；乙含五十张白天照片和五十张夜间照片。若产品将在昼夜都使用，哪一组更适合起步？还需要检查哪些情况？\n\n## 常见误解\n误解一：“像素多就一定识别得准。”分辨率只是条件之一，标签质量、特征、数据覆盖与评价方法同样重要。\n\n误解二：“测试集是训练做完后可以继续拿来练习的题。”一旦根据测试结果反复调",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "1c0a3d63-6523-4278-826a-971aa8beff1c",
+              "score": 0.0328
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "仅仅保存像素还不够。分类时常需要从像素中提取有帮助的特征。识别红苹果时，整体颜色可能有帮助；分辨圆形交通标志与三角形标志时，边缘方向和轮廓更重要；分辨斑马与白马时，条纹纹理可能提供线索。一个特征在某个任务中有用，不代表在所有任务中都有用。用背景颜色识别动物，在训练图片都拍摄于固定地点时看起来很准，换到新背景就可能失败。\n\n机器学习需要带答案的例子。训练集像练习册，程序利用其中的图片和标签寻找“哪些",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "b33d6178-f49c-4d82-abfc-b58a354c868d",
+              "score": 0.0323
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "这展示了“选择与问题相关的特征”比盲目收集特征更重要。\n\n不用电脑的课堂活动“纸卡图像分类器”：四人一组，准备二十四张自制图形卡，包含不同颜色、形状、大小与边框。十二张作为训练卡并贴上教师给定的 A、B 标签，六张用于调整规则，最后六张作为密封测试卡。小组写出不超过三条分类规则，逐张测试并记录预测、正确标签和错误原因。活动结束后交换测试卡，观察换一组画法后规则是否仍有效。所有卡片使用几何图形，不使",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "dc019c27-c9bd-4c6a-b08b-00fa5cfc4fce",
+              "score": 0.0323
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "若确需人物数据，应由教师说明目的、保存时间和删除方式，并取得适当同意。不要把姓名、住址、学校班级、联系方式或位置元数据作为无关特征。展示结果时报告错误和限制，不把分类结果用于给同学贴性格、能力或价值标签。发现某一类表现明显较差时，应暂停使用、补充代表性评估并邀请受影响者反馈。\n\n## 参考来源\n- 中华人民共和国教育部：《义务教育课程方案和课程标准（2022年版）》发布说明。http://www.",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "376b24d5-aba6-4325-9d98-af28c9656774",
+              "score": 0.0321
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "因此还要分别检查每一类：哪些钢笔被错认成铅笔，哪些铅笔被错认成钢笔。对少数类别、容易受伤害的人群或重要安全场景，更不能只看一个总数字。\n\n偏差常从数据进入系统。如果训练照片大多来自晴天，雨天识别可能较差；如果某类物体只有正面照片，侧面照片可能被漏掉；如果收集人物图片时年龄、肤色、辅助设备或拍摄环境覆盖不均，系统对不同群体的表现可能不同。解决偏差不是简单地“再多拍一些”，还要先说明用途、获得同意、减",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "3c280e99-5cd5-4376-b34b-b19db7235367",
+              "score": 0.0317
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "pu_q3_misconception",
+          "expected_kb": "k12-ai-primary-upper",
+          "observed_kb": "k12-ai-primary-upper",
+          "expected_sources": [
+            "primary-upper-image-recognition.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "讨论下一轮应补充什么数据，而不是只说“多加图片”。\n\n四、比较两个数据集：甲含九十张白天照片和十张夜间照片；乙含五十张白天照片和五十张夜间照片。若产品将在昼夜都使用，哪一组更适合起步？还需要检查哪些情况？\n\n## 常见误解\n误解一：“像素多就一定识别得准。”分辨率只是条件之一，标签质量、特征、数据覆盖与评价方法同样重要。\n\n误解二：“测试集是训练做完后可以继续拿来练习的题。”一旦根据测试结果反复调",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "1c0a3d63-6523-4278-826a-971aa8beff1c",
+              "score": 0.0331
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "若确需人物数据，应由教师说明目的、保存时间和删除方式，并取得适当同意。不要把姓名、住址、学校班级、联系方式或位置元数据作为无关特征。展示结果时报告错误和限制，不把分类结果用于给同学贴性格、能力或价值标签。发现某一类表现明显较差时，应暂停使用、补充代表性评估并邀请受影响者反馈。\n\n## 参考来源\n- 中华人民共和国教育部：《义务教育课程方案和课程标准（2022年版）》发布说明。http://www.",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "376b24d5-aba6-4325-9d98-af28c9656774",
+              "score": 0.0321
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "仅仅保存像素还不够。分类时常需要从像素中提取有帮助的特征。识别红苹果时，整体颜色可能有帮助；分辨圆形交通标志与三角形标志时，边缘方向和轮廓更重要；分辨斑马与白马时，条纹纹理可能提供线索。一个特征在某个任务中有用，不代表在所有任务中都有用。用背景颜色识别动物，在训练图片都拍摄于固定地点时看起来很准，换到新背景就可能失败。\n\n机器学习需要带答案的例子。训练集像练习册，程序利用其中的图片和标签寻找“哪些",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "b33d6178-f49c-4d82-abfc-b58a354c868d",
+              "score": 0.032
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "因此还要分别检查每一类：哪些钢笔被错认成铅笔，哪些铅笔被错认成钢笔。对少数类别、容易受伤害的人群或重要安全场景，更不能只看一个总数字。\n\n偏差常从数据进入系统。如果训练照片大多来自晴天，雨天识别可能较差；如果某类物体只有正面照片，侧面照片可能被漏掉；如果收集人物图片时年龄、肤色、辅助设备或拍摄环境覆盖不均，系统对不同群体的表现可能不同。解决偏差不是简单地“再多拍一些”，还要先说明用途、获得同意、减",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "3c280e99-5cd5-4376-b34b-b19db7235367",
+              "score": 0.032
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "这展示了“选择与问题相关的特征”比盲目收集特征更重要。\n\n不用电脑的课堂活动“纸卡图像分类器”：四人一组，准备二十四张自制图形卡，包含不同颜色、形状、大小与边框。十二张作为训练卡并贴上教师给定的 A、B 标签，六张用于调整规则，最后六张作为密封测试卡。小组写出不超过三条分类规则，逐张测试并记录预测、正确标签和错误原因。活动结束后交换测试卡，观察换一组画法后规则是否仍有效。所有卡片使用几何图形，不使",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "dc019c27-c9bd-4c6a-b08b-00fa5cfc4fce",
+              "score": 0.032
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "pu_q4_safety",
+          "expected_kb": "k12-ai-primary-upper",
+          "observed_kb": "k12-ai-primary-upper",
+          "expected_sources": [
+            "primary-upper-image-recognition.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "若确需人物数据，应由教师说明目的、保存时间和删除方式，并取得适当同意。不要把姓名、住址、学校班级、联系方式或位置元数据作为无关特征。展示结果时报告错误和限制，不把分类结果用于给同学贴性格、能力或价值标签。发现某一类表现明显较差时，应暂停使用、补充代表性评估并邀请受影响者反馈。\n\n## 参考来源\n- 中华人民共和国教育部：《义务教育课程方案和课程标准（2022年版）》发布说明。http://www.",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "376b24d5-aba6-4325-9d98-af28c9656774",
+              "score": 0.0333
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "这展示了“选择与问题相关的特征”比盲目收集特征更重要。\n\n不用电脑的课堂活动“纸卡图像分类器”：四人一组，准备二十四张自制图形卡，包含不同颜色、形状、大小与边框。十二张作为训练卡并贴上教师给定的 A、B 标签，六张用于调整规则，最后六张作为密封测试卡。小组写出不超过三条分类规则，逐张测试并记录预测、正确标签和错误原因。活动结束后交换测试卡，观察换一组画法后规则是否仍有效。所有卡片使用几何图形，不使",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "dc019c27-c9bd-4c6a-b08b-00fa5cfc4fce",
+              "score": 0.0323
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "# 图像识别大冒险\n## 适用学段\n小学四至六年级。学生应能阅读简单表格、比较数量，并愿意通过纸笔活动讨论“机器为什么这样判断”。课程不要求编程基础。\n\n## 学习目标\n完成本课后，学生能够解释数字图片由许多像素组成，每个像素记录位置和颜色；能够举例说明颜色、边缘、形状和纹理可以成为图像特征；能够区分训练集与测试集的用途，知道测试图片不能提前混进训练过程；能够用“猜对数量与全部测试数量相比”的思路",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "1ab3d87e-d313-4dba-9a5b-94a14a565b33",
+              "score": 0.0318
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "讨论下一轮应补充什么数据，而不是只说“多加图片”。\n\n四、比较两个数据集：甲含九十张白天照片和十张夜间照片；乙含五十张白天照片和五十张夜间照片。若产品将在昼夜都使用，哪一组更适合起步？还需要检查哪些情况？\n\n## 常见误解\n误解一：“像素多就一定识别得准。”分辨率只是条件之一，标签质量、特征、数据覆盖与评价方法同样重要。\n\n误解二：“测试集是训练做完后可以继续拿来练习的题。”一旦根据测试结果反复调",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "1c0a3d63-6523-4278-826a-971aa8beff1c",
+              "score": 0.0318
+            },
+            {
+              "title": "primary-upper-image-recognition.md",
+              "content": "仅仅保存像素还不够。分类时常需要从像素中提取有帮助的特征。识别红苹果时，整体颜色可能有帮助；分辨圆形交通标志与三角形标志时，边缘方向和轮廓更重要；分辨斑马与白马时，条纹纹理可能提供线索。一个特征在某个任务中有用，不代表在所有任务中都有用。用背景颜色识别动物，在训练图片都拍摄于固定地点时看起来很准，换到新背景就可能失败。\n\n机器学习需要带答案的例子。训练集像练习册，程序利用其中的图片和标签寻找“哪些",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-primary-upper\\raw\\primary-upper-image-recognition.md",
+              "page": "",
+              "chunk_id": "b33d6178-f49c-4d82-abfc-b58a354c868d",
+              "score": 0.0315
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "m_q1_factual",
+          "expected_kb": "k12-ai-middle",
+          "observed_kb": "k12-ai-middle",
+          "expected_sources": [
+            "middle-classification-lab.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "middle-classification-lab.md",
+              "content": "讨论为什么不能随机把相邻记录分到训练和测试两边，并提出按设备或时间分组的划分方案。\n\n四、依据伪代码设计实验记录表，至少包括数据版本、特征清单、划分方法、随机种子、规则版本、混淆矩阵和限制。让另一组仅凭记录尝试复现实验。\n\n五、比较两个分类器：甲在多数类表现很好但从不识别少数类；乙总准确率略低，却能发现大部分少数类。结合“校园设备故障提醒”和“娱乐内容推荐”两个场景分别作出选择，说明错误代价如何影",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "7a5a45bf-f330-453a-8a51-c1b4affb0a73",
+              "score": 0.0323
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "http://www.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html\n- UNESCO：《AI Competency Framework for Students》，关于数据意识、模型理解、伦理判断和负责任设计的能力要求。https://www.unesco.org/en/articles/ai-competency-framew",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "fa471289-e54e-49fc-b490-d6a7158a62d5",
+              "score": 0.0321
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "误解四：“准确率最高的模型就是最好。”还要考虑不同错误的代价、少数类表现、可解释性、运行资源、隐私和人工复核方式。\n\n误解五：“删除敏感字段就没有偏差。”地区、设备型号或消费习惯可能成为敏感属性的替代线索，需要结合场景与分组评估检查。\n\n## 安全与伦理\n坚持数据最小化，只收集完成任务必要的数据，说明用途、保存期限和删除方式。涉及人时应获得适当授权，不用课堂实验推断同学的智力、性格、健康、家庭条件",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "29e7ef93-5b3c-4202-8777-1312bc869e43",
+              "score": 0.032
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "分类任务必须先明确对象与标签含义。若“需要浇水”没有统一判定标准，不同记录者会给相似植物贴上不同标签，模型学到的关系就不稳定。标签不是天然真理，它来自测量、规则或人的判断，因此应记录标签由谁、在什么条件下产生。\n\n每一行数据通常代表一个样本，每一列描述样本的一个属性。用于预测的属性叫特征，期望预测的答案叫标签。植物任务中的土壤湿度、光照时长和最近浇水间隔可以是特征，“需要浇水”可以是标签。特征要与",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "a54bf87f-31c7-4e1d-941e-3c43ede38b37",
+              "score": 0.0316
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "还要在不同采集地点、设备型号或用户群体上分别检查。整体平均表现不能保证每个子群都可靠。\n\n下面的伪代码强调流程而不是某种编程语言：\n\n```text\n读取带标签的数据表\n检查缺失值、单位、重复样本和标签说明\n选择与任务相关且不过度收集隐私的特征\n使用固定随机种子打乱数据\n按类别比例划分训练集和测试集\n只用训练集建立分类规则\n对测试集逐行预测，期间不查看测试标签修改规则\n比较预测与真实标签，统计四格",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "c3d10869-e4a4-4ce6-8b38-9a6b71cbbf1e",
+              "score": 0.0315
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "m_q2_age_expression",
+          "expected_kb": "k12-ai-middle",
+          "observed_kb": "k12-ai-middle",
+          "expected_sources": [
+            "middle-classification-lab.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "middle-classification-lab.md",
+              "content": "http://www.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html\n- UNESCO：《AI Competency Framework for Students》，关于数据意识、模型理解、伦理判断和负责任设计的能力要求。https://www.unesco.org/en/articles/ai-competency-framew",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "fa471289-e54e-49fc-b490-d6a7158a62d5",
+              "score": 0.0328
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "两种规则在同一测试集上比较。\n\n测试结果中，规则乙答对八条，准确率看起来不错。但混淆矩阵显示两条错误都是把真正需要检查的植物判为暂不需要。小组因此不能只宣布“八成准确”，而应说明漏报风险，检查湿度传感器是否在某种土壤中偏高，并增加这类条件下的代表性样本。最终系统只给出“请人工检查”的建议，不直接控制水泵，保留人的复核责任。\n\n## 练习\n一、给出一张运动场地是否湿滑的数据表，包含天气、地面材料、表",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "c14dc97f-258e-4ab2-a348-81db506a66c0",
+              "score": 0.0323
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "混淆矩阵把二分类结果分成四格。真实需要浇水且预测需要浇水，是真正例；真实暂不浇水且预测暂不浇水，是真负例；不需要却误报需要，是假正例；需要却漏报为不需要，是假负例。矩阵帮助我们看到错误方向。若漏掉缺水植物比多提醒一次更危险，就要特别关注假负例，而不是只追求总准确率。由真正例和假负例可以观察“实际正类中找回了多少”，由真正例和假正例可以观察“预测为正时有多少是真的”。\n\n类别不均衡会造成表面高分。若",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "14693d06-5577-4702-a854-1f55f1e99bcd",
+              "score": 0.0321
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "讨论为什么不能随机把相邻记录分到训练和测试两边，并提出按设备或时间分组的划分方案。\n\n四、依据伪代码设计实验记录表，至少包括数据版本、特征清单、划分方法、随机种子、规则版本、混淆矩阵和限制。让另一组仅凭记录尝试复现实验。\n\n五、比较两个分类器：甲在多数类表现很好但从不识别少数类；乙总准确率略低，却能发现大部分少数类。结合“校园设备故障提醒”和“娱乐内容推荐”两个场景分别作出选择，说明错误代价如何影",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "7a5a45bf-f330-453a-8a51-c1b4affb0a73",
+              "score": 0.0313
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "误解四：“准确率最高的模型就是最好。”还要考虑不同错误的代价、少数类表现、可解释性、运行资源、隐私和人工复核方式。\n\n误解五：“删除敏感字段就没有偏差。”地区、设备型号或消费习惯可能成为敏感属性的替代线索，需要结合场景与分组评估检查。\n\n## 安全与伦理\n坚持数据最小化，只收集完成任务必要的数据，说明用途、保存期限和删除方式。涉及人时应获得适当授权，不用课堂实验推断同学的智力、性格、健康、家庭条件",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "29e7ef93-5b3c-4202-8777-1312bc869e43",
+              "score": 0.0311
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "m_q3_misconception",
+          "expected_kb": "k12-ai-middle",
+          "observed_kb": "k12-ai-middle",
+          "expected_sources": [
+            "middle-classification-lab.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "middle-classification-lab.md",
+              "content": "误解四：“准确率最高的模型就是最好。”还要考虑不同错误的代价、少数类表现、可解释性、运行资源、隐私和人工复核方式。\n\n误解五：“删除敏感字段就没有偏差。”地区、设备型号或消费习惯可能成为敏感属性的替代线索，需要结合场景与分组评估检查。\n\n## 安全与伦理\n坚持数据最小化，只收集完成任务必要的数据，说明用途、保存期限和删除方式。涉及人时应获得适当授权，不用课堂实验推断同学的智力、性格、健康、家庭条件",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "29e7ef93-5b3c-4202-8777-1312bc869e43",
+              "score": 0.0328
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "两种规则在同一测试集上比较。\n\n测试结果中，规则乙答对八条，准确率看起来不错。但混淆矩阵显示两条错误都是把真正需要检查的植物判为暂不需要。小组因此不能只宣布“八成准确”，而应说明漏报风险，检查湿度传感器是否在某种土壤中偏高，并增加这类条件下的代表性样本。最终系统只给出“请人工检查”的建议，不直接控制水泵，保留人的复核责任。\n\n## 练习\n一、给出一张运动场地是否湿滑的数据表，包含天气、地面材料、表",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "c14dc97f-258e-4ab2-a348-81db506a66c0",
+              "score": 0.032
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "若同一张记录复制多次并分散到训练集与测试集，测试结果会过于乐观。清理操作、删除理由和数据版本都应记录，使同伴能够复现实验。\n\n训练集用于确定分类规则或模型参数，测试集只用于评价最终方法对新数据的表现。常见做法是先随机打乱，再按固定比例划分，同时尽量保持各类别比例。若数据有时间顺序，例如用前几个月预测下个月，就应按时间先后划分，避免未来信息进入过去。若同一个人的多条记录高度相似，最好按人分组划分，防",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "a84ab79b-1280-47ba-82f0-f776987a7a9c",
+              "score": 0.0318
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "讨论为什么不能随机把相邻记录分到训练和测试两边，并提出按设备或时间分组的划分方案。\n\n四、依据伪代码设计实验记录表，至少包括数据版本、特征清单、划分方法、随机种子、规则版本、混淆矩阵和限制。让另一组仅凭记录尝试复现实验。\n\n五、比较两个分类器：甲在多数类表现很好但从不识别少数类；乙总准确率略低，却能发现大部分少数类。结合“校园设备故障提醒”和“娱乐内容推荐”两个场景分别作出选择，说明错误代价如何影",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "7a5a45bf-f330-453a-8a51-c1b4affb0a73",
+              "score": 0.0318
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "还要在不同采集地点、设备型号或用户群体上分别检查。整体平均表现不能保证每个子群都可靠。\n\n下面的伪代码强调流程而不是某种编程语言：\n\n```text\n读取带标签的数据表\n检查缺失值、单位、重复样本和标签说明\n选择与任务相关且不过度收集隐私的特征\n使用固定随机种子打乱数据\n按类别比例划分训练集和测试集\n只用训练集建立分类规则\n对测试集逐行预测，期间不查看测试标签修改规则\n比较预测与真实标签，统计四格",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "c3d10869-e4a4-4ce6-8b38-9a6b71cbbf1e",
+              "score": 0.0315
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "m_q4_safety",
+          "expected_kb": "k12-ai-middle",
+          "observed_kb": "k12-ai-middle",
+          "expected_sources": [
+            "middle-classification-lab.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "middle-classification-lab.md",
+              "content": "还要在不同采集地点、设备型号或用户群体上分别检查。整体平均表现不能保证每个子群都可靠。\n\n下面的伪代码强调流程而不是某种编程语言：\n\n```text\n读取带标签的数据表\n检查缺失值、单位、重复样本和标签说明\n选择与任务相关且不过度收集隐私的特征\n使用固定随机种子打乱数据\n按类别比例划分训练集和测试集\n只用训练集建立分类规则\n对测试集逐行预测，期间不查看测试标签修改规则\n比较预测与真实标签，统计四格",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "c3d10869-e4a4-4ce6-8b38-9a6b71cbbf1e",
+              "score": 0.0323
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "讨论为什么不能随机把相邻记录分到训练和测试两边，并提出按设备或时间分组的划分方案。\n\n四、依据伪代码设计实验记录表，至少包括数据版本、特征清单、划分方法、随机种子、规则版本、混淆矩阵和限制。让另一组仅凭记录尝试复现实验。\n\n五、比较两个分类器：甲在多数类表现很好但从不识别少数类；乙总准确率略低，却能发现大部分少数类。结合“校园设备故障提醒”和“娱乐内容推荐”两个场景分别作出选择，说明错误代价如何影",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "7a5a45bf-f330-453a-8a51-c1b4affb0a73",
+              "score": 0.0323
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "误解四：“准确率最高的模型就是最好。”还要考虑不同错误的代价、少数类表现、可解释性、运行资源、隐私和人工复核方式。\n\n误解五：“删除敏感字段就没有偏差。”地区、设备型号或消费习惯可能成为敏感属性的替代线索，需要结合场景与分组评估检查。\n\n## 安全与伦理\n坚持数据最小化，只收集完成任务必要的数据，说明用途、保存期限和删除方式。涉及人时应获得适当授权，不用课堂实验推断同学的智力、性格、健康、家庭条件",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "29e7ef93-5b3c-4202-8777-1312bc869e43",
+              "score": 0.0318
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "http://www.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html\n- UNESCO：《AI Competency Framework for Students》，关于数据意识、模型理解、伦理判断和负责任设计的能力要求。https://www.unesco.org/en/articles/ai-competency-framew",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "fa471289-e54e-49fc-b490-d6a7158a62d5",
+              "score": 0.0316
+            },
+            {
+              "title": "middle-classification-lab.md",
+              "content": "# 数据分类实验室\n## 适用学段\n初中七至九年级。学生应能阅读二维表格、计算百分比、比较不同方案，并理解变量用于记录可变化的数据。课程可以用纸笔完成，也可在教师指导下将伪代码改写成任意入门编程语言。\n\n## 学习目标\n完成本课后，学生能够说明有标签数据由样本、特征和目标标签组成；能够根据任务目标选择有意义且可合法使用的特征；能够描述分类器从训练数据学习规则、再对未见数据预测类别的基本流程；能够正",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-middle\\raw\\middle-classification-lab.md",
+              "page": "",
+              "chunk_id": "02829339-a310-4f66-8f20-410f88cf8352",
+              "score": 0.0311
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "h_q1_factual",
+          "expected_kb": "k12-ai-high",
+          "observed_kb": "k12-ai-high",
+          "expected_sources": [
+            "high-python-image-classifier.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "为使用者提供人工复核、纠错、申诉、退出和数据删除渠道。依赖第三方库时应核对许可证、版本和安全更新；输出模型与数据文件不得包含秘密密钥或个人信息。\n\n## 参考来源\n- UNESCO：《AI Competency Framework for Students》，覆盖以人为本、AI 技术理解、伦理和系统设计能力。https://www.unesco.org/en/articles/ai-compete",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "f67798a7-01cf-46c8-b2d7-845b6a08e3ba",
+              "score": 0.0318
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "org/stable/modules/classes.html#module-sklearn.model_selection\n- Google for Developers：《Machine Learning Crash Course》，涵盖特征、分类、过拟合、数据集与公平性。https://developers.google.com/machine-learning/crash-course",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "8088f429-b958-47e3-8454-3d4f9882b0b8",
+              "score": 0.0314
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "小测试集上多答对一张图片就可能大幅改变百分比，不能据此宣称普遍有效。\n\n数据分布会变化。课堂训练使用居中的黑白图形，真实输入可能倾斜、模糊、有阴影、来自不同设备或包含训练中未定义的类别。分类器通常仍会强行选择某个已知类别，因此应用层需要输入质量检查、拒绝机制和“未知”处理。部署后还要监测错误，保留版本和回滚能力。模型分数不是事实证明，更不是对人的价值判断。\n\n### 可运行的 Python 示例\n",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "0484b498-4886-4be6-bc2b-641b99f783cc",
+              "score": 0.0311
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "示例代码少于八十行。\n\n```python\nfrom collections import defaultdict\nimport math\nimport random\n\n\ndef features(image):\n    rows, cols = len(image), len(image[0])\n    pixels = [value / 255 for row in image for val",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "3ff1fd78-c68e-4591-a756-abfa1e7ff6b7",
+              "score": 0.031
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "min(255, value + delta)) for value in row] for row in base], label)\n    for base, label in [(TOP, \"top\"), (BOTTOM, \"bottom\")]\n    for delta in (-20, -10, 0, 10, 20, 30)\n]\ntrain, test = stratified_spli",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "716308cc-d87a-433d-a355-dbd639a0595e",
+              "score": 0.031
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "h_q2_age_expression",
+          "expected_kb": "k12-ai-high",
+          "observed_kb": "k12-ai-high",
+          "expected_sources": [
+            "high-python-image-classifier.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "为使用者提供人工复核、纠错、申诉、退出和数据删除渠道。依赖第三方库时应核对许可证、版本和安全更新；输出模型与数据文件不得包含秘密密钥或个人信息。\n\n## 参考来源\n- UNESCO：《AI Competency Framework for Students》，覆盖以人为本、AI 技术理解、伦理和系统设计能力。https://www.unesco.org/en/articles/ai-compete",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "f67798a7-01cf-46c8-b2d7-845b6a08e3ba",
+              "score": 0.032
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "org/stable/modules/classes.html#module-sklearn.model_selection\n- Google for Developers：《Machine Learning Crash Course》，涵盖特征、分类、过拟合、数据集与公平性。https://developers.google.com/machine-learning/crash-course",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "8088f429-b958-47e3-8454-3d4f9882b0b8",
+              "score": 0.0316
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "预测新图像时，提取同样的特征，计算它到每个质心的距离，选择距离最近的类别。常用的欧氏距离会把各维度差异平方后相加。若某个特征的数值范围远大于其他特征，它会主导距离，因此实际项目常需要标准化。本示例特征都压缩到相近范围，仍应在报告中说明这一假设。\n\n最近质心方法的时间开销较容易估计。训练时需要遍历训练样本并累计每类特征；预测一个样本时，需要与每个类别质心比较。类别和特征数量增加，计算量近似随两者乘积",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "1c7256fa-2600-4339-8baa-97b4a5bf4f0e",
+              "score": 0.0312
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "示例代码少于八十行。\n\n```python\nfrom collections import defaultdict\nimport math\nimport random\n\n\ndef features(image):\n    rows, cols = len(image), len(image[0])\n    pixels = [value / 255 for row in image for val",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "3ff1fd78-c68e-4591-a756-abfa1e7ff6b7",
+              "score": 0.031
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "min(255, value + delta)) for value in row] for row in base], label)\n    for base, label in [(TOP, \"top\"), (BOTTOM, \"bottom\")]\n    for delta in (-20, -10, 0, 10, 20, 30)\n]\ntrain, test = stratified_spli",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "716308cc-d87a-433d-a355-dbd639a0595e",
+              "score": 0.0305
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "h_q3_misconception",
+          "expected_kb": "k12-ai-high",
+          "observed_kb": "k12-ai-high",
+          "expected_sources": [
+            "high-python-image-classifier.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "将同一代码用于真实照片会遇到尺寸、旋转、背景和颜色差异。若训练集只含白底居中图形，模型可能把背景当成主要线索。在测试中加入不同背景后，混淆矩阵会暴露问题。改进可以包括更有代表性的数据、归一化、位置不敏感的特征，或选择能学习局部结构的模型。但复杂模型仍需要独立测试、偏差检查和责任机制，并不会自动解决数据问题。\n\n## 练习\n一、手工计算两张四乘四数组的平均亮度和上下区域差异，预测哪一个特征能区分“上",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "12927b98-629d-4051-b560-fe564fed2c47",
+              "score": 0.0323
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "误解四：“准确率达到高值就能部署。”还需检查类别错误、未知输入、分布变化、资源成本、隐私、安全、人工复核和错误后果。高风险用途需要更严格的专业验证。\n\n误解五：“更复杂的神经网络会自动消除偏差。”复杂模型可能学习更强表示，也可能放大数据中的不平衡与历史偏差。数据治理和评价设计不可省略。\n\n误解六：“删除姓名就实现匿名。”图像本身、文件元数据、精确时间地点和其他组合特征仍可能识别人，匿名化需要系统评",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "75bb9ebb-7951-4a7c-86c6-98ed99ca1d36",
+              "score": 0.032
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "四、制造数据泄漏：先复制一个样本，再让副本分别进入训练和测试。比较结果后恢复按原始来源分组的划分，说明为什么“看似更高的分数”不代表泛化能力提升。\n\n五、为分类器写一份模型卡摘要，包括预期用途、禁止用途、训练数据范围、特征、指标、已知失败情境、隐私处理、人工复核与停止使用条件。\n\n六、分析复杂度：若特征从三个增加到三十个、类别从两个增加到二十个，预测阶段需要比较的数值差异如何变化？讨论标准化、内存",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "67c5fde5-e5a2-42b6-b2b3-d6b1d3c1674d",
+              "score": 0.0315
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "org/stable/modules/classes.html#module-sklearn.model_selection\n- Google for Developers：《Machine Learning Crash Course》，涵盖特征、分类、过拟合、数据集与公平性。https://developers.google.com/machine-learning/crash-course",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "8088f429-b958-47e3-8454-3d4f9882b0b8",
+              "score": 0.0314
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "小测试集上多答对一张图片就可能大幅改变百分比，不能据此宣称普遍有效。\n\n数据分布会变化。课堂训练使用居中的黑白图形，真实输入可能倾斜、模糊、有阴影、来自不同设备或包含训练中未定义的类别。分类器通常仍会强行选择某个已知类别，因此应用层需要输入质量检查、拒绝机制和“未知”处理。部署后还要监测错误，保留版本和回滚能力。模型分数不是事实证明，更不是对人的价值判断。\n\n### 可运行的 Python 示例\n",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "0484b498-4886-4be6-bc2b-641b99f783cc",
+              "score": 0.0313
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        },
+        {
+          "question_id": "h_q4_safety",
+          "expected_kb": "k12-ai-high",
+          "observed_kb": "k12-ai-high",
+          "expected_sources": [
+            "high-python-image-classifier.md"
+          ],
+          "observed_sources": [
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "为使用者提供人工复核、纠错、申诉、退出和数据删除渠道。依赖第三方库时应核对许可证、版本和安全更新；输出模型与数据文件不得包含秘密密钥或个人信息。\n\n## 参考来源\n- UNESCO：《AI Competency Framework for Students》，覆盖以人为本、AI 技术理解、伦理和系统设计能力。https://www.unesco.org/en/articles/ai-compete",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "f67798a7-01cf-46c8-b2d7-845b6a08e3ba",
+              "score": 0.0331
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "org/stable/modules/classes.html#module-sklearn.model_selection\n- Google for Developers：《Machine Learning Crash Course》，涵盖特征、分类、过拟合、数据集与公平性。https://developers.google.com/machine-learning/crash-course",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "8088f429-b958-47e3-8454-3d4f9882b0b8",
+              "score": 0.0325
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "误解四：“准确率达到高值就能部署。”还需检查类别错误、未知输入、分布变化、资源成本、隐私、安全、人工复核和错误后果。高风险用途需要更严格的专业验证。\n\n误解五：“更复杂的神经网络会自动消除偏差。”复杂模型可能学习更强表示，也可能放大数据中的不平衡与历史偏差。数据治理和评价设计不可省略。\n\n误解六：“删除姓名就实现匿名。”图像本身、文件元数据、精确时间地点和其他组合特征仍可能识别人，匿名化需要系统评",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "75bb9ebb-7951-4a7c-86c6-98ed99ca1d36",
+              "score": 0.0325
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "四、制造数据泄漏：先复制一个样本，再让副本分别进入训练和测试。比较结果后恢复按原始来源分组的划分，说明为什么“看似更高的分数”不代表泛化能力提升。\n\n五、为分类器写一份模型卡摘要，包括预期用途、禁止用途、训练数据范围、特征、指标、已知失败情境、隐私处理、人工复核与停止使用条件。\n\n六、分析复杂度：若特征从三个增加到三十个、类别从两个增加到二十个，预测阶段需要比较的数值差异如何变化？讨论标准化、内存",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "67c5fde5-e5a2-42b6-b2b3-d6b1d3c1674d",
+              "score": 0.0315
+            },
+            {
+              "title": "high-python-image-classifier.md",
+              "content": "小测试集上多答对一张图片就可能大幅改变百分比，不能据此宣称普遍有效。\n\n数据分布会变化。课堂训练使用居中的黑白图形，真实输入可能倾斜、模糊、有阴影、来自不同设备或包含训练中未定义的类别。分类器通常仍会强行选择某个已知类别，因此应用层需要输入质量检查、拒绝机制和“未知”处理。部署后还要监测错误，保留版本和回滚能力。模型分数不是事实证明，更不是对人的价值判断。\n\n### 可运行的 Python 示例\n",
+              "source": "D:\\ai\\DeepTutor\\data\\knowledge_bases\\k12-ai-high\\raw\\high-python-image-classifier.md",
+              "page": "",
+              "chunk_id": "0484b498-4886-4be6-bc2b-641b99f783cc",
+              "score": 0.0311
+            }
+          ],
+          "hit": true,
+          "fully_traceable": true,
+          "leak": false
+        }
+      ]
     },
     "llm_judge": {
       "type": "llm_judge",
@@ -89,22 +920,21 @@
     "manual_spot_check": {
       "type": "manual_spot_check",
       "status": "pending_human_review",
-      "note": "Human reviewers must spot-check factual accuracy (>=95%), source traceability (100%), and stage blind-test differentiation.",
+      "note": "Human reviewers must spot-check factual accuracy (>=95%) and stage blind-test differentiation.",
       "unverified": true
     }
   },
   "quality_gates": {
     "stage_policy_deterministic": "100% required",
     "safety_redline": "100% required",
-    "benchmark_retrieval_hit_rate": ">=90% required (not yet automated)",
+    "benchmark_retrieval_hit_rate": ">=90% required (automated when indexes are ready)",
     "manual_factual_accuracy": ">=95% required (pending human review)",
-    "source_traceability": "100% required (not yet automated)",
+    "source_traceability": "100% required (automated when indexes are ready)",
+    "wrong_course_leakage": "0% required",
     "stage_blind_test": "reviewer must identify stage from expression/difficulty (pending human review)"
   },
   "unverified_items": [
-    "benchmark_retrieval_hit_rate (requires RAG index)",
     "manual_factual_accuracy (requires human spot-check)",
-    "source_traceability (requires RAG index)",
     "stage_blind_test (requires human reviewers)"
   ]
 }

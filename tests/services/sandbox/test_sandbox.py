@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import sys
 
 import pytest
 
@@ -73,7 +75,13 @@ async def test_restricted_subprocess_runs() -> None:
 @pytest.mark.asyncio
 async def test_restricted_subprocess_timeout() -> None:
     backend = RestrictedSubprocessBackend()
-    result = await backend.exec(ExecRequest(command="sleep 5", limits=ResourceLimits(timeout_s=1)))
+    # ``sleep`` does not exist on Windows, so use a portable Python sleep.
+    result = await backend.exec(
+        ExecRequest(
+            command=f'{sys.executable} -c "import time; time.sleep(5)"',
+            limits=ResourceLimits(timeout_s=1),
+        )
+    )
     assert result.timed_out
     assert result.exit_code == 124
 
@@ -144,6 +152,13 @@ def test_runner_server_validates_request_shape() -> None:
     assert "limits" in server.execute({"command": "true", "limits": ["bad"]})["error"]
 
 
+_RUNNER_WINDOWS_REASON = (
+    "sandbox runner sidecar runs in the Linux runner container "
+    "(resource.setrlimit / preexec_fn); command execution is not supported on Windows"
+)
+
+
+@pytest.mark.skipif(os.name == "nt", reason=_RUNNER_WINDOWS_REASON)
 def test_runner_server_executes_and_truncates_output() -> None:
     from deeptutor.services.sandbox.runner import server
 
@@ -160,6 +175,7 @@ def test_runner_server_executes_and_truncates_output() -> None:
     assert len(result["stdout"]) < 120
 
 
+@pytest.mark.skipif(os.name == "nt", reason=_RUNNER_WINDOWS_REASON)
 def test_runner_server_rejects_workdir_outside_allowed_roots(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

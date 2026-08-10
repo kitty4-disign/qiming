@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 import importlib.util
 import json
 from typing import Any, AsyncIterator
 
+from deeptutor.core.context import EducationContext
 from deeptutor.runtime.registry.capability_registry import get_capability_registry
 from deeptutor.services.notebook import get_notebook_manager
 from deeptutor.services.session import get_session_store, get_turn_runtime_manager
@@ -23,12 +24,21 @@ class TurnRequest:
     knowledge_bases: list[str] = field(default_factory=list)
     language: str = "en"
     config: dict[str, Any] = field(default_factory=dict)
+    education_context: EducationContext | dict[str, Any] | None = None
     notebook_references: list[dict[str, Any]] = field(default_factory=list)
     history_references: list[str] = field(default_factory=list)
     attachments: list[dict[str, Any]] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
 
     def to_payload(self) -> dict[str, Any]:
+        education_context = self.education_context
+        serialized_education_context = (
+            asdict(education_context)
+            if isinstance(education_context, EducationContext)
+            else dict(education_context)
+            if education_context is not None
+            else None
+        )
         return {
             "content": self.content,
             "capability": self.capability,
@@ -37,6 +47,7 @@ class TurnRequest:
             "knowledge_bases": list(self.knowledge_bases),
             "language": self.language,
             "config": dict(self.config),
+            "education_context": serialized_education_context,
             "notebook_references": list(self.notebook_references),
             "history_references": list(self.history_references),
             "attachments": list(self.attachments),

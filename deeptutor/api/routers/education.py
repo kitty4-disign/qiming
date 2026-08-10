@@ -11,6 +11,8 @@ from deeptutor.education.code_runner import CodeRunError, run_student_code
 from deeptutor.education.coding_models import CodeRunRequest
 from deeptutor.education.coding_tasks import get_coding_task, list_coding_tasks
 from deeptutor.education.gamification import compute_gamification
+from deeptutor.education.episode_models import CompleteEpisodeRequest, CreateEpisodeRequest
+from deeptutor.education.episode_service import EpisodeConflictError, LearningEpisodeService
 from deeptutor.education.mastery_seed import ensure_course_mastery_path
 from deeptutor.education.models import StudentProfile
 from deeptutor.education.path_ids import build_mastery_path_id
@@ -20,6 +22,8 @@ from deeptutor.education.recommender import (
     recommend,
     summarize_mastery,
 )
+from deeptutor.education.teaching_policy import decide_teaching
+from deeptutor.learning.policy import display_mastery, find_knowledge_point
 from deeptutor.multi_user.knowledge_access import list_visible_knowledge_bases
 
 router = APIRouter()
@@ -31,6 +35,32 @@ def _profile_service() -> EducationProfileService:
 
 def _activity_service() -> EducationActivityService:
     return EducationActivityService()
+
+
+def _episode_service() -> LearningEpisodeService:
+    return LearningEpisodeService()
+
+
+def _course_context(course_id: str):
+    profile = _profile_service().load()
+    if profile is None:
+        raise HTTPException(status_code=409, detail="education_profile_required")
+    textbook = resolve_curriculum(profile)
+    course = next((item for item in textbook.courses if item.id == course_id), None)
+    if course is None:
+        raise HTTPException(status_code=404, detail="course_not_found")
+    mastery_path_id = build_mastery_path_id(textbook.id, course.id)
+    progress = ensure_course_mastery_path(
+        course, textbook_id=textbook.id, path_id=mastery_path_id
+    )
+    return profile, textbook, course, mastery_path_id, progress
+
+
+def _knowledge_point(progress, knowledge_point_id: str):
+    kp, _, _ = find_knowledge_point(progress, knowledge_point_id)
+    if kp is None:
+        raise HTTPException(status_code=422, detail="knowledge_point_not_in_course")
+    return kp
 
 
 @router.get("/profile")
@@ -96,9 +126,15 @@ async def record_event(completion: ActivityCompletion):
     request with the same key returns the existing event instead of creating a
     duplicate, preventing double-credit on page refresh.
     """
-    profile = _profile_service().load()
-    if profile is None:
-        raise HTTPException(status_code=409, detail="education_profile_required")
+    _, _, _, mastery_path_id, _ = _course_context(completion.course_id)
+    if completion.mastery_path_id != mastery_path_id:
+        raise HTTPException(status_code=422, detail="mastery_path_mismatch")
+    if completion.episode_id:
+        episode = _episode_service().get(completion.episode_id)
+        if episode is None or episode.course_id != completion.course_id:
+            raise HTTPException(status_code=422, detail="episode_mismatch")
+        if completion.knowledge_point_id != episode.knowledge_point_id:
+            raise HTTPException(status_code=422, detail="knowledge_point_not_in_episode")
     event = _activity_service().record(completion)
     return {"event": event.model_dump(mode="json")}
 
@@ -123,19 +159,7 @@ async def get_dashboard(course_id: str):
     trip so the dashboard renders immediately and the recommendation is always
     consistent with the persisted mastery state.
     """
-    profile = _profile_service().load()
-    if profile is None:
-        raise HTTPException(status_code=409, detail="education_profile_required")
-    textbook = resolve_curriculum(profile)
-    course = next((item for item in textbook.courses if item.id == course_id), None)
-    if course is None:
-        raise HTTPException(status_code=404, detail="course_not_found")
-    mastery_path_id = build_mastery_path_id(textbook.id, course.id)
-    progress = ensure_course_mastery_path(
-        course,
-        textbook_id=textbook.id,
-        path_id=mastery_path_id,
-    )
+    profile, _, course, mastery_path_id, progress = _course_context(course_id)
     activity_service = _activity_service()
     recent_events = activity_service.list_for_course(course_id, limit=20)
     activity_summary = activity_service.summarize(course_id)
@@ -151,6 +175,18 @@ async def get_dashboard(course_id: str):
     )
     recommendation = recommend(ctx)
     mastery_summary = summarize_mastery(progress)
+    episode_service = _episode_service()
+    active_episode = episode_service.current(course_id=course_id)
+    completed_episodes = [
+        item for item in episode_service.list_recent(course_id=course_id, limit=10)
+        if item.status == "completed"
+    ]
+    decision = decide_teaching(
+        profile=profile,
+        progress=progress,
+        allowed_modalities=list(course.recommended_actions),
+        misconceptions=(active_episode.initial_misconceptions if active_episode else []),
+    )
 
     return {
         "profile": profile.model_dump(mode="json"),
@@ -160,7 +196,65 @@ async def get_dashboard(course_id: str):
         "recommendation": recommendation.model_dump(mode="json"),
         "activity_summary": activity_summary,
         "recent_events": [event.model_dump(mode="json") for event in recent_events],
+        "active_episode": active_episode.evidence_dump() if active_episode else None,
+        "learning_evidence": completed_episodes[0].evidence_dump() if completed_episodes else None,
+        "teaching_decision": decision.model_dump(mode="json"),
     }
+
+
+@router.post("/episodes")
+async def create_episode(request: CreateEpisodeRequest):
+    profile, _, _, mastery_path_id, progress = _course_context(request.course_id)
+    kp = _knowledge_point(progress, request.knowledge_point_id)
+    episode = _episode_service().create(
+        course_id=request.course_id,
+        mastery_path_id=mastery_path_id,
+        knowledge_point_id=kp.id,
+        knowledge_point_name=kp.name,
+        stage=profile.stage,
+        pre_score=request.pre_score,
+        initial_misconceptions=request.initial_misconceptions,
+        mastery_before=display_mastery(progress, kp),
+    )
+    return {"episode": episode.evidence_dump()}
+
+
+@router.get("/episodes/current")
+async def get_current_episode(course_id: str | None = None):
+    episode = _episode_service().current(course_id=course_id)
+    return {"episode": episode.evidence_dump() if episode else None}
+
+
+@router.get("/episodes/{episode_id}")
+async def get_episode(episode_id: str):
+    episode = _episode_service().get(episode_id)
+    if episode is None:
+        raise HTTPException(status_code=404, detail="episode_not_found")
+    return {"episode": episode.evidence_dump()}
+
+
+@router.post("/episodes/{episode_id}/complete")
+async def complete_episode(episode_id: str, request: CompleteEpisodeRequest):
+    existing = _episode_service().get(episode_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="episode_not_found")
+    _, _, _, mastery_path_id, progress = _course_context(existing.course_id)
+    if existing.mastery_path_id != mastery_path_id:
+        raise HTTPException(status_code=422, detail="mastery_path_mismatch")
+    kp = _knowledge_point(progress, existing.knowledge_point_id)
+    try:
+        episode = _episode_service().complete(
+            episode_id,
+            post_score=request.post_score,
+            resolved_misconceptions=request.resolved_misconceptions,
+            activities_used=request.activities_used,
+            activity_reasons=request.activity_reasons,
+            source_ids=request.source_ids,
+            mastery_after=display_mastery(progress, kp),
+        )
+    except EpisodeConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"episode": episode.evidence_dump()}
 
 
 @router.get("/coding-tasks")

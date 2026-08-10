@@ -76,6 +76,10 @@ const APP_VERSION = (() => {
 })();
 
 const nextConfig = {
+  // `deeptutor start` probes over 127.0.0.1 while the launcher advertises
+  // localhost. Allow either local hostname to load dev assets and HMR.
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
+
   // Expose the build-time version to the browser so the sidebar badge
   // can compare it against GitHub's latest release.
   env: {

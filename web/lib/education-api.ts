@@ -5,17 +5,67 @@ import type {
   EducationLaunchContext,
   EducationRecommendation,
   LearningEvent,
+  LearningEpisode,
   StudentProfile,
+  TeachingDecision,
 } from "@/lib/education-types";
+
+export class EducationApiError extends Error {
+  readonly code: string;
+  readonly status: number;
+
+  constructor(code: string, status: number) {
+    super(code);
+    this.name = "EducationApiError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+function errorCode(data: unknown, status: number): string {
+  if (typeof data !== "object" || data === null || !("detail" in data)) {
+    return `http_${status}`;
+  }
+  const detail = (data as { detail: unknown }).detail;
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail)) return "validation_error";
+  return `http_${status}`;
+}
+
+const EDUCATION_ERROR_KEYS: Record<string, string> = {
+  education_profile_required: "Education profile required",
+  course_not_found: "Course not found",
+  knowledge_point_not_in_course: "Knowledge point not in course",
+  mastery_path_mismatch: "Learning path mismatch",
+  episode_mismatch: "Learning episode mismatch",
+  knowledge_point_not_in_episode: "Knowledge point not in learning episode",
+  episode_not_found: "Learning episode not found",
+  episode_not_active: "Learning episode is no longer active",
+  task_not_found: "Coding task not found",
+  task_course_mismatch: "Coding task course mismatch",
+  source_too_long: "Code source too long",
+  forbidden_import: "Forbidden import",
+  unsupported_language: "Unsupported code language",
+  language_not_allowed: "Code language not allowed",
+  sandbox_unavailable: "Sandbox unavailable",
+  validation_error: "Education validation failed",
+};
+
+/** Convert education API codes into UI translation keys without exposing raw protocol text. */
+export function educationErrorKey(reason: unknown): string {
+  const code = reason instanceof EducationApiError
+    ? reason.code.split(":", 1)[0]
+    : "";
+  return EDUCATION_ERROR_KEYS[code] ??
+    (reason instanceof TypeError
+      ? "Unable to connect to education service"
+      : "Education request failed");
+}
 
 async function expectJson<T>(response: Response): Promise<T> {
   const data = (await response.json().catch(() => ({}))) as unknown;
   if (!response.ok) {
-    const detail =
-      typeof data === "object" && data !== null && "detail" in data
-        ? String((data as { detail: unknown }).detail)
-        : `Request failed: ${response.status}`;
-    throw new Error(detail);
+    throw new EducationApiError(errorCode(data, response.status), response.status);
   }
   return data as T;
 }
@@ -71,6 +121,9 @@ export interface EducationDashboard {
     last_event_at: number;
   };
   recent_events: LearningEvent[];
+  active_episode: LearningEpisode | null;
+  learning_evidence: LearningEpisode | null;
+  teaching_decision: TeachingDecision;
 }
 
 export async function getEducationDashboard(

@@ -249,13 +249,18 @@ async def unified_websocket(ws: WebSocket) -> None:
 
                 runtime = get_turn_runtime_manager()
                 accepted = await runtime.submit_user_reply(turn_id, text=text_str, answers=answers)
-                if not accepted:
+                if accepted is False:
                     await safe_send(
                         {
                             "type": "error",
                             "content": (f"Turn {turn_id} is not awaiting a user reply."),
                         }
                     )
+                elif isinstance(accepted, str) and accepted:
+                    # K12 turn boundary: the reply started a NEW tutor turn
+                    # (the previous one ended at its ask_user card). Stream
+                    # the new turn's events so the answer + feedback appear.
+                    await subscribe_turn(accepted, after_seq=0)
                 continue
 
             if msg_type == "regenerate":

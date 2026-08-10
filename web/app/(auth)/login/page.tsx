@@ -90,7 +90,7 @@ function LoginPageContent() {
                          placeholder:text-[var(--muted-foreground)]
                          focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent
                          transition-shadow text-sm"
-              placeholder="you@example.com"
+              placeholder={t("Email or username")}
             />
           </div>
 
@@ -158,11 +158,12 @@ function LoginPageContent() {
 }
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   return (
     <Suspense
       fallback={
         <div className="w-full max-w-sm text-center text-sm text-[var(--muted-foreground)]">
-          Loading sign in...
+          {t("Loading sign in...")}
         </div>
       }
     >

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from deeptutor.core.context import Attachment, UnifiedContext
+from deeptutor.core.context import Attachment, EducationContext, UnifiedContext
 from deeptutor.core.errors import (
     ConfigurationError,
     DeepTutorError,
@@ -64,6 +64,7 @@ class TestUnifiedContext:
         assert ctx.language == "en"
         assert ctx.memory_context == ""
         assert ctx.source_manifest == ""
+        assert ctx.education_context is None
         assert ctx.metadata == {}
 
     def test_mutable_defaults_are_independent(self) -> None:
@@ -86,6 +87,11 @@ class TestUnifiedContext:
             language="zh",
             memory_context="user preference",
             source_manifest='id=nb-1 name="Lecture" type=notebook preview="..."',
+            education_context=EducationContext(
+                stage="primary_upper",
+                grade=5,
+                knowledge_point_id="path_m0_kp0",
+            ),
             metadata={"turn_id": "t1"},
         )
         assert ctx.session_id == "s1"
@@ -93,6 +99,8 @@ class TestUnifiedContext:
         assert len(ctx.attachments) == 1
         assert ctx.attachments[0].type == "image"
         assert ctx.language == "zh"
+        assert ctx.education_context is not None
+        assert ctx.education_context.knowledge_point_id == "path_m0_kp0"
 
     def test_enabled_tools_none_vs_empty(self) -> None:
         """None means 'not specified', [] means 'explicitly disable all'."""

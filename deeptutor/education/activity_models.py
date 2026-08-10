@@ -37,6 +37,7 @@ class LearningEvent(BaseModel):
     activity: EducationActivity
     event_type: ActivityEventType
     knowledge_point_id: str = Field(default="", max_length=120)
+    episode_id: str = Field(default="", max_length=80)
     score: float | None = Field(default=None, ge=0.0, le=1.0)
     duration_seconds: int | None = Field(default=None, ge=0, le=24 * 3600)
     idempotency_key: str = Field(default="", max_length=120)
@@ -80,6 +81,7 @@ class ActivityCompletion(BaseModel):
     activity: EducationActivity
     event_type: ActivityEventType
     knowledge_point_id: str = Field(default="", max_length=120)
+    episode_id: str = Field(default="", max_length=80)
     score: float | None = Field(default=None, ge=0.0, le=1.0)
     duration_seconds: int | None = Field(default=None, ge=0, le=24 * 3600)
     idempotency_key: str = Field(min_length=1, max_length=120)
