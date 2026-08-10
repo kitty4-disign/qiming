@@ -12,7 +12,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { educationErrorKey, getLaunchContext } from "@/lib/education-api";
+import {
+  EducationApiError,
+  educationErrorKey,
+  getCodingTasks,
+  getLaunchContext,
+} from "@/lib/education-api";
 import { buildEducationLaunchIntent } from "@/lib/education-launch-builder";
 import {
   saveEducationLaunch,
@@ -36,7 +41,7 @@ const ACTIONS: Array<{
   modality: LearningModality;
   label: string;
   description: string;
-  route: "/home" | "/book";
+  route: "/home" | "/book" | null;
   icon: LucideIcon;
 }> = [
   {
@@ -76,7 +81,7 @@ const ACTIONS: Array<{
     modality: "coding",
     label: "Coding Practice",
     description: "Coding Practice description",
-    route: "/home",
+    route: null,
     icon: Code2,
   },
 ];
@@ -107,7 +112,20 @@ export function LearningActionGrid({ course, profile, launchContext }: LearningA
             launchContext: context,
           }),
         );
-        router.push(action.route);
+
+        if (action.action === "coding") {
+          const tasks = await getCodingTasks(course.id);
+          const firstTask = tasks[0];
+          if (!firstTask) {
+            throw new EducationApiError("task_not_found", 404);
+          }
+          router.push(
+            `/education/lab/${encodeURIComponent(course.id)}/${encodeURIComponent(firstTask.id)}`,
+          );
+          return;
+        }
+
+        router.push(action.route ?? "/home");
       } catch (reason) {
         setError(t(educationErrorKey(reason)));
         setPending(null);
