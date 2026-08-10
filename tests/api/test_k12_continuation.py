@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from deeptutor.services.session.k12_continuation import (
+    advance_quiz_state,
     continue_k12_reply,
     flatten_k12_reply,
     install_k12_continuation,
@@ -75,20 +76,50 @@ def test_flatten_k12_reply_prefers_structured_answers() -> None:
     )
 
 
+def test_quiz_state_advances_once_per_answered_turn() -> None:
+    config = {
+        "course_id": "course-1",
+        "mastery_path_id": "path-1",
+        "activity_mode": "quiz",
+        "quiz_run_id": "12345",
+        "quiz_question_count": 3,
+        "quiz_answered_count": 0,
+        "quiz_last_answered_turn_id": "",
+    }
+
+    first = advance_quiz_state(config, "turn-1")
+    duplicate = advance_quiz_state(first, "turn-1")
+    second = advance_quiz_state(duplicate, "turn-2")
+    third = advance_quiz_state(second, "turn-3")
+    capped = advance_quiz_state(third, "turn-4")
+
+    assert first["quiz_answered_count"] == 1
+    assert duplicate["quiz_answered_count"] == 1
+    assert second["quiz_answered_count"] == 2
+    assert third["quiz_answered_count"] == 3
+    assert capped["quiz_answered_count"] == 3
+    assert capped["quiz_last_answered_turn_id"] == "turn-3"
+
+
 @pytest.mark.asyncio
 async def test_k12_reply_waits_for_terminal_and_preserves_session_context() -> None:
+    quiz_config = {
+        "course_id": "course-1",
+        "mastery_path_id": "path-1",
+        "activity_mode": "quiz",
+        "quiz_run_id": "12345",
+        "quiz_question_count": 3,
+        "quiz_answered_count": 0,
+        "quiz_last_answered_turn_id": "",
+    }
     preferences = {
         "tools": ["code_execution"],
         "knowledge_bases": ["kb-ai-literacy"],
         "language": "zh",
-        "capability_config": {
-            "course_id": "course-1",
-            "mastery_path_id": "path-1",
-            "activity_mode": "quiz",
-        },
+        "capability_config": quiz_config,
         "education_context": {
-            "stage": "junior_high",
-            "grade": "8",
+            "stage": "middle",
+            "grade": 8,
             "knowledge_point_id": "kp-1",
         },
         "persona": "Socratic",
@@ -114,7 +145,11 @@ async def test_k12_reply_waits_for_terminal_and_preserves_session_context() -> N
     assert runtime.started_payload["tools"] == ["code_execution"]
     assert runtime.started_payload["knowledge_bases"] == ["kb-ai-literacy"]
     assert runtime.started_payload["language"] == "zh"
-    assert runtime.started_payload["config"] == preferences["capability_config"]
+    assert runtime.started_payload["config"] == {
+        **quiz_config,
+        "quiz_answered_count": 1,
+        "quiz_last_answered_turn_id": "turn-1",
+    }
     assert runtime.started_payload["education_context"] == preferences["education_context"]
     assert runtime.started_payload["persona"] == "Socratic"
     assert runtime.started_payload["llm_selection"] == preferences["llm_selection"]
