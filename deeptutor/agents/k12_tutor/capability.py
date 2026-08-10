@@ -8,12 +8,42 @@ from deeptutor.education.catalog import resolve_curriculum, resolve_visible_know
 from deeptutor.education.mastery_seed import ensure_course_mastery_path
 from deeptutor.education.path_ids import build_mastery_path_id
 from deeptutor.education.profile_service import EducationProfileService
+from deeptutor.education.teaching_policy import TeachingDecision, decide_teaching
 from deeptutor.multi_user.knowledge_access import list_visible_knowledge_bases
 from deeptutor.runtime.request_contracts import get_capability_request_schema
 
 
 def _profile_service() -> EducationProfileService:
     return EducationProfileService()
+
+
+def _teaching_decision_protocol(language: str, decision: TeachingDecision) -> str:
+    """Turn a deterministic policy decision into live tutor constraints."""
+    reasons = ", ".join(decision.reason_codes) or "none"
+    if str(language).lower().startswith("zh"):
+        return (
+            "服务端教学策略（本轮必须执行）：\n"
+            f"- 活动：{decision.activity}\n"
+            f"- 难度级别：{decision.difficulty}/4；解释深度：{decision.explanation_depth}/4\n"
+            f"- 提示强度：{decision.hint_level}\n"
+            f"- 建议本轮问题预算：{decision.question_count}\n"
+            f"- 可使用代码教学：{'是' if decision.use_code else '否'}；"
+            f"可使用可视化：{'是' if decision.use_visualization else '否'}\n"
+            f"- 当前策略知识点：{decision.knowledge_point_id or '按 mastery_status 决定'}\n"
+            f"- 策略原因：{reasons}\n"
+            "这些参数用于控制教学方式，但知识点推进顺序仍以 mastery_status 的硬门控为准。"
+        )
+    return (
+        "Server teaching policy (must shape this turn):\n"
+        f"- activity: {decision.activity}\n"
+        f"- difficulty: {decision.difficulty}/4; explanation depth: {decision.explanation_depth}/4\n"
+        f"- hint level: {decision.hint_level}\n"
+        f"- suggested question budget: {decision.question_count}\n"
+        f"- code teaching allowed: {decision.use_code}; visualization allowed: {decision.use_visualization}\n"
+        f"- policy knowledge point: {decision.knowledge_point_id or 'follow mastery_status'}\n"
+        f"- reason codes: {reasons}\n"
+        "These parameters control pedagogy; mastery_status remains authoritative for objective ordering."
+    )
 
 
 def _turn_boundary_protocol(
@@ -159,6 +189,22 @@ class K12TutorCapability(BaseCapability):
                 quiz_answered_count >= quiz_question_count
             )
 
+        policy_decision = decide_teaching(
+            profile=profile,
+            progress=progress,
+            allowed_modalities=list(course.recommended_actions),
+        )
+        # The learner explicitly chose this activity in the dashboard. Policy
+        # controls how it is taught, while the explicit launch controls what
+        # activity is being run. Exact quiz length is also a product contract.
+        policy_updates: dict[str, object] = {"activity": activity_mode}
+        if activity_mode == "quiz":
+            policy_updates["question_count"] = quiz_question_count
+        effective_decision = policy_decision.model_copy(update=policy_updates)
+        context.metadata["education_teaching_decision"] = effective_decision.model_dump(
+            mode="json"
+        )
+
         target_knowledge_point = None
         if education_context is not None and education_context.knowledge_point_id:
             target_knowledge_point = next(
@@ -185,6 +231,7 @@ class K12TutorCapability(BaseCapability):
                 target_knowledge_point.id if target_knowledge_point else ""
             ),
         )
+        teaching_protocol = _teaching_decision_protocol(context.language, effective_decision)
         boundary_protocol = _turn_boundary_protocol(
             context.language,
             activity_mode,
@@ -196,6 +243,7 @@ class K12TutorCapability(BaseCapability):
             for part in (
                 context.persona_context.strip(),
                 guidance,
+                teaching_protocol,
                 boundary_protocol,
             )
             if part
