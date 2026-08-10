@@ -89,7 +89,7 @@ def test_teaching_decision_protocol_exposes_policy_parameters() -> None:
     assert "难度级别：3/4" in text
     assert "解释深度：2/4" in text
     assert "提示强度：medium" in text
-    assert "建议本轮问题预算：3" in text
+    assert "当前活动问题预算：3" in text
     assert "kp-image-features" in text
     assert "STAGE_MIDDLE, LOW_MASTERY" in text
     assert "mastery_status 的硬门控" in text
