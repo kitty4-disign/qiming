@@ -21,6 +21,7 @@ Usage:
 
 from .agentic_pipeline import AgenticChatPipeline
 from .chat_agent import ChatAgent
+from .k12_finish_guard import install_k12_finish_guard
 from .session_manager import SessionManager
 from .tool_protocol_filter import ToolProtocolFilter as _ChunkSafeToolProtocolFilter
 from . import agent_loop as _agent_loop
@@ -30,5 +31,6 @@ from . import agent_loop as _agent_loop
 # loaded so every pipeline path gets the chunk-safe state machine without
 # duplicating the large agent-loop implementation.
 _agent_loop.ToolProtocolFilter = _ChunkSafeToolProtocolFilter
+install_k12_finish_guard(_agent_loop)
 
 __all__ = ["AgenticChatPipeline", "ChatAgent", "SessionManager"]
