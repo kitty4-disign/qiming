@@ -16,45 +16,80 @@ def _profile_service() -> EducationProfileService:
     return EducationProfileService()
 
 
-def _turn_boundary_protocol(language: str, activity_mode: str) -> str:
+def _turn_boundary_protocol(
+    language: str,
+    activity_mode: str,
+    *,
+    quiz_answered_count: int = 0,
+    quiz_question_count: int = 3,
+) -> str:
     """Hard protocol appended after normal guidance so turn semantics win."""
+    total = max(1, min(10, int(quiz_question_count or 3)))
+    answered = max(0, min(total, int(quiz_answered_count or 0)))
     zh = str(language).lower().startswith("zh")
+
     if zh:
         common = (
             "K12 跨轮次协议（硬性要求，优先级高于上方活动说明）：\n"
             "- ask_user 是当前 turn 的终点；调用 ask_user 后绝不能在同一 turn 中继续 mastery_grade。\n"
             "- 每个新 turn 都必须先调用 mastery_status。若状态显示有 pending answer，必须先用 "
             "mastery_grade 批改学习者刚提交的答案，再解释反馈。\n"
-            "- 除非 mastery_status / mastery_grade 返回的 next.action 明确为 complete，否则反馈后不能"
-            "直接用无工具文本结束；必须继续一个最小教学步骤，并最终用恰好一个 ask_user 问题结束 turn。\n"
-            "- 不得让学习者输入“继续”才能恢复正常教学；只要课程未完成，本轮就要主动推进到下一个"
-            "可回答的问题。\n"
+            "- 除测验轮次达到其明确题数上限外，若 mastery_status / mastery_grade 的 next.action"
+            " 不是 complete，反馈后不能直接用无工具文本结束；必须继续一个最小教学步骤，并最终用"
+            "恰好一个 ask_user 问题结束 turn。\n"
+            "- 不得让学习者输入“继续”才能恢复正常教学；只要当前活动仍需推进，本轮就要主动推进到"
+            "下一个可回答的问题。\n"
         )
-        if activity_mode == "quiz":
+        if activity_mode != "quiz":
+            return common
+        if answered >= total:
             return common + (
-                "测验模式额外要求：若没有 pending answer，先 mastery_quiz 注册恰好一道题，再 ask_user；"
-                "若刚完成 mastery_grade 且课程未完成，则给即时反馈后注册下一道题并 ask_user。"
+                f"测验状态（服务端计数）：已提交 {answered}/{total} 题。"
+                f"本轮只负责批改第 {total} 题：先 mastery_status，再 mastery_grade，给出第 {total} 题"
+                "即时反馈和本轮测验总结。题数上限优先于课程是否 complete；本轮绝对禁止再次调用 "
+                "mastery_quiz 或 ask_user，禁止生成第 4 题/额外题，然后以正常文本结束本轮测验。"
             )
-        return common
+        if answered == 0:
+            return common + (
+                f"测验状态（服务端计数）：已提交 0/{total} 题。当前是测验启动轮；读取 mastery_status "
+                "后注册第 1 题并用 ask_user 展示。每次只允许注册一题。"
+            )
+        return common + (
+            f"测验状态（服务端计数）：学习者刚提交第 {answered}/{total} 题的答案。先批改第 {answered} "
+            f"题并给即时反馈；随后注册第 {answered + 1} 题并用 ask_user 展示。"
+            "不得跳题、重复计数或一次展示多题。"
+        )
 
     common = (
         "K12 cross-turn protocol (hard requirement; overrides conflicting activity text above):\n"
         "- ask_user ENDS the current turn. Never call mastery_grade after ask_user in the same turn.\n"
         "- Every new turn starts with mastery_status. If it reports a pending answer, call mastery_grade "
         "first to grade the learner's submitted answer, then explain the feedback.\n"
-        "- Unless mastery_status/mastery_grade explicitly returns next.action == complete, do not end "
-        "with tool-less feedback. Continue one minimal teaching step and finish the turn with exactly one "
-        "ask_user question.\n"
-        "- Never require the learner to type 'continue' to resume normal teaching; while the course is "
-        "incomplete, proactively advance to the next answerable question.\n"
+        "- Except when a quiz has reached its explicit question limit, if next.action is not complete, "
+        "do not end with tool-less feedback. Continue one minimal teaching step and finish the turn with "
+        "exactly one ask_user question.\n"
+        "- Never require the learner to type 'continue' to resume normal teaching; proactively advance "
+        "while the current activity still has work to do.\n"
     )
-    if activity_mode == "quiz":
+    if activity_mode != "quiz":
+        return common
+    if answered >= total:
         return common + (
-            "Quiz mode: when there is no pending answer, register exactly one question with mastery_quiz "
-            "then ask_user; after mastery_grade, if the course is incomplete, give immediate feedback, "
-            "register the next question, and end with ask_user."
+            f"Quiz state (server counted): {answered}/{total} answers submitted. This turn only grades "
+            f"question {total}: call mastery_status, then mastery_grade, give immediate feedback and a quiz "
+            "summary. The quiz question limit takes precedence over course completion: do NOT call "
+            "mastery_quiz or ask_user again, do NOT create an extra question, and finish with normal text."
         )
-    return common
+    if answered == 0:
+        return common + (
+            f"Quiz state (server counted): 0/{total} answers submitted. This is the launch turn; after "
+            "mastery_status register question 1 and present it with ask_user. Register only one question."
+        )
+    return common + (
+        f"Quiz state (server counted): the learner just submitted answer {answered}/{total}. Grade question "
+        f"{answered} first and give immediate feedback; then register question {answered + 1} and present "
+        "it with ask_user. Never skip, double-count, or show multiple questions at once."
+    )
 
 
 class K12TutorCapability(BaseCapability):
@@ -142,7 +177,12 @@ class K12TutorCapability(BaseCapability):
                 target_knowledge_point.id if target_knowledge_point else ""
             ),
         )
-        boundary_protocol = _turn_boundary_protocol(context.language, activity_mode)
+        boundary_protocol = _turn_boundary_protocol(
+            context.language,
+            activity_mode,
+            quiz_answered_count=int(context.config_overrides.get("quiz_answered_count") or 0),
+            quiz_question_count=int(context.config_overrides.get("quiz_question_count") or 3),
+        )
         context.persona_context = "\n\n".join(
             part
             for part in (
