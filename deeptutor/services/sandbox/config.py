@@ -10,6 +10,11 @@ shape without per-user config:
   subprocess (admin-opt-in local dev — APPLICATION isolation only);
 * else ⇒ no sandbox (exec disabled).
 
+The runner sidecar's ``/exec`` endpoint additionally requires the shared
+``DEEPTUTOR_SANDBOX_RUNNER_TOKEN`` bearer token. A configured runner URL with
+no token therefore fails closed at execution time instead of exposing an
+unauthenticated container shell.
+
 ``exec`` is offered to ordinary users only when the active backend reaches
 SYSTEM isolation; APPLICATION isolation is admin-opt-in (see
 :mod:`deeptutor.tools.exec_tool`). Per-user quotas live in
@@ -30,6 +35,7 @@ from deeptutor.services.sandbox.backends import (
 from deeptutor.services.sandbox.spec import ResourceLimits
 
 RUNNER_URL_ENV = "DEEPTUTOR_SANDBOX_RUNNER_URL"
+RUNNER_TOKEN_ENV = "DEEPTUTOR_SANDBOX_RUNNER_TOKEN"
 ALLOW_SUBPROCESS_ENV = "DEEPTUTOR_SANDBOX_ALLOW_SUBPROCESS"
 
 # Per-user execution quotas (see quota.py). Conservative defaults; override
@@ -41,6 +47,7 @@ MAX_PER_MINUTE_ENV = "DEEPTUTOR_SANDBOX_MAX_PER_MINUTE"
 @dataclass(frozen=True)
 class SandboxSettings:
     runner_url: str = ""
+    runner_token: str = ""
     allow_subprocess: bool = False
     default_limits: ResourceLimits = ResourceLimits()
     max_concurrent_per_user: int = 2
@@ -56,8 +63,9 @@ class SandboxSettings:
 
         return cls(
             runner_url=os.environ.get(RUNNER_URL_ENV, "").strip(),
-            allow_subprocess=os.environ.get(ALLOW_SUBPROCESS_ENV, "").strip()
-            in {"1", "true", "yes"},
+            runner_token=os.environ.get(RUNNER_TOKEN_ENV, "").strip(),
+            allow_subprocess=os.environ.get(ALLOW_SUBPROCESS_ENV, "").strip().lower()
+            in {"1", "true", "yes", "on"},
             max_concurrent_per_user=_int(MAX_CONCURRENT_ENV, 2),
             max_runs_per_minute_per_user=_int(MAX_PER_MINUTE_ENV, 20),
         )
@@ -73,7 +81,7 @@ def build_backend(settings: SandboxSettings) -> SandboxBackend | None:
     import sys
 
     if settings.runner_url:
-        return RunnerSidecarBackend(settings.runner_url)
+        return RunnerSidecarBackend(settings.runner_url, token=settings.runner_token)
     if sys.platform.startswith("linux"):
         import shutil
 
@@ -86,6 +94,7 @@ def build_backend(settings: SandboxSettings) -> SandboxBackend | None:
 
 __all__ = [
     "ALLOW_SUBPROCESS_ENV",
+    "RUNNER_TOKEN_ENV",
     "RUNNER_URL_ENV",
     "SandboxSettings",
     "build_backend",
