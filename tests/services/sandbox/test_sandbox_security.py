@@ -20,6 +20,17 @@ def test_sandbox_settings_load_runner_token(monkeypatch: pytest.MonkeyPatch) -> 
     assert settings.runner_token == "secret-token"
 
 
+def test_host_subprocess_requires_separate_unsafe_acknowledgement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DEEPTUTOR_SANDBOX_ALLOW_SUBPROCESS", "1")
+    monkeypatch.delenv("DEEPTUTOR_SANDBOX_ACK_UNSAFE_HOST_SUBPROCESS", raising=False)
+    assert SandboxSettings.from_env().allow_subprocess is False
+
+    monkeypatch.setenv("DEEPTUTOR_SANDBOX_ACK_UNSAFE_HOST_SUBPROCESS", "1")
+    assert SandboxSettings.from_env().allow_subprocess is True
+
+
 @pytest.mark.asyncio
 async def test_runner_backend_without_token_fails_closed_before_http() -> None:
     backend = RunnerSidecarBackend("http://runner:8900")
