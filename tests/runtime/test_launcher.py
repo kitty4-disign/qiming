@@ -14,6 +14,21 @@ class _FakeTty:
         return True
 
 
+def test_bind_host_defaults_to_loopback(monkeypatch) -> None:
+    monkeypatch.delenv("DEEPTUTOR_API_HOST", raising=False)
+    assert launcher._bind_host("DEEPTUTOR_API_HOST") == "127.0.0.1"
+
+
+def test_bind_host_blank_value_falls_back_to_loopback(monkeypatch) -> None:
+    monkeypatch.setenv("DEEPTUTOR_API_HOST", "   ")
+    assert launcher._bind_host("DEEPTUTOR_API_HOST") == "127.0.0.1"
+
+
+def test_bind_host_allows_explicit_external_binding(monkeypatch) -> None:
+    monkeypatch.setenv("DEEPTUTOR_API_HOST", "0.0.0.0")
+    assert launcher._bind_host("DEEPTUTOR_API_HOST") == "0.0.0.0"
+
+
 def test_stream_output_escapes_characters_unsupported_by_console(monkeypatch) -> None:
     printed: list[str] = []
     process = SimpleNamespace(stdout=["\u2713 Ready\n"])
