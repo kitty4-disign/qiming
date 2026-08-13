@@ -53,19 +53,21 @@ class LearningService:
         """Replace modules without attaching old evidence to a changed concept.
 
         Mastery-path knowledge-point ids are positional, so an id alone is not
-        a stable identity across a curriculum rebuild. We preserve state only
-        when the old and new KP with that id have the same semantic fingerprint
-        (name, type, module id). This keeps append/rebuild operations from
-        destroying history for genuinely unchanged KPs while ensuring a reused
-        positional id cannot inherit another concept's mastery or quiz history.
+        a stable identity across a curriculum rebuild. State is preserved only
+        when the old and new KP with that id keep the same semantic fingerprint
+        (name and type). Module membership is deliberately excluded: moving an
+        unchanged KP between modules is an organizational edit, not a new
+        concept. A positional id reused for a different concept therefore loses
+        its old mastery/quiz history, while append/reorder operations retain
+        evidence for genuinely unchanged KPs.
         """
 
-        def _fingerprints(source: list[LearningModule]) -> dict[str, tuple[str, str, str]]:
-            result: dict[str, tuple[str, str, str]] = {}
+        def _fingerprints(source: list[LearningModule]) -> dict[str, tuple[str, str]]:
+            result: dict[str, tuple[str, str]] = {}
             for module in source:
                 for kp in module.knowledge_points:
                     kp_type = getattr(kp.type, "value", kp.type)
-                    result[kp.id] = (str(kp.name).strip(), str(kp_type), str(kp.module_id))
+                    result[kp.id] = (str(kp.name).strip(), str(kp_type))
             return result
 
         old_fingerprints = _fingerprints(list(progress.modules))
@@ -124,10 +126,9 @@ class LearningService:
         progress.stage_failure_notes = {}
 
         progress.modules = list(modules)
-        progress.knowledge_types = {}
-        for mod in modules:
-            for kp in mod.knowledge_points:
-                progress.knowledge_types[kp.id] = kp.type
+        progress.knowledge_types = {
+            kp.id: kp.type for module in modules for kp in module.knowledge_points
+        }
 
         valid_module_ids = {m.id for m in modules}
         if progress.current_module_id not in valid_module_ids:
@@ -256,7 +257,9 @@ class LearningService:
         )
         if knowledge_point_id:
             self.update_mastery(
-                progress, knowledge_point_id, self.calculate_mastery(progress, knowledge_point_id)
+                progress,
+                knowledge_point_id,
+                self.calculate_mastery(progress, knowledge_point_id),
             )
             kp_type = progress.knowledge_types.get(knowledge_point_id)
             if kp_type is not None and scheduler is not None:
