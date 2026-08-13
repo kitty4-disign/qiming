@@ -32,6 +32,22 @@ def _module(*, kp_name: str = "new concept") -> LearningModule:
     )
 
 
+def _appended_module() -> LearningModule:
+    return LearningModule(
+        id="m1",
+        name="Module 1",
+        order=1,
+        knowledge_points=[
+            KnowledgePoint(
+                id="path_m1_kp0",
+                name="brand new topic",
+                type=KnowledgeType.PROCEDURE,
+                module_id="m1",
+            )
+        ],
+    )
+
+
 def test_replace_modules_clears_history_even_when_positional_kp_id_is_reused(
     tmp_path: Path,
 ) -> None:
@@ -65,6 +81,34 @@ def test_replace_modules_clears_history_even_when_positional_kp_id_is_reused(
     assert progress.quiz_attempts == []
     assert progress.pending_question is None
     assert progress.knowledge_types == {"path_m0_kp0": KnowledgeType.CONCEPT}
+
+
+def test_append_style_rebuild_preserves_history_for_unchanged_kp(tmp_path: Path) -> None:
+    service = LearningService(LearningStore(root=tmp_path / "learning"))
+    progress = LearningProgress(book_id="path")
+    unchanged = _module(kp_name="same concept")
+    progress.modules = [unchanged]
+    progress.mastery_levels["path_m0_kp0"] = 0.8
+    progress.qualitative_mastery["path_m0_kp0"] = True
+    progress.quiz_attempts.append(
+        QuizAttempt(
+            question_id="q-old",
+            knowledge_point_id="path_m0_kp0",
+            module_id="m0",
+            is_correct=True,
+            user_answer="A",
+        )
+    )
+
+    service.replace_modules(progress, [unchanged, _appended_module()])
+
+    assert progress.mastery_levels == {"path_m0_kp0": 0.8}
+    assert progress.qualitative_mastery == {"path_m0_kp0": True}
+    assert [attempt.question_id for attempt in progress.quiz_attempts] == ["q-old"]
+    assert progress.knowledge_types == {
+        "path_m0_kp0": KnowledgeType.CONCEPT,
+        "path_m1_kp0": KnowledgeType.PROCEDURE,
+    }
 
 
 def test_second_distinct_pending_question_is_rejected(tmp_path: Path) -> None:
