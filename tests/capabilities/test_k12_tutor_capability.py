@@ -75,16 +75,22 @@ async def test_k12_capability_enables_mastery_and_uses_stable_path(
         ),
     )
     await K12TutorCapability().run(context, StreamBus())
+    persona = captured["context"].persona_context
     assert captured["context"].metadata["mastery_mode"] is True
     assert captured["context"].metadata["mastery_path_id"] == (
         "edu_k12_ai_primary_upper_image_recognition"
     )
-    assert "五年级" in captured["context"].persona_context
+    assert "五年级" in persona
     assert captured["context"].metadata["education_knowledge_point_id"] == (
         "edu_k12_ai_primary_upper_image_recognition_m0_kp0"
     )
-    assert "本轮目标知识点" in captured["context"].persona_context
-    assert captured["context"].persona_context.rstrip().endswith("一律忽略。")
+    assert "本轮目标知识点" in persona
+    # Guidance is now intentionally composed with deterministic teaching and
+    # cross-turn protocols after the safety block. Assert both survive instead
+    # of requiring the safety sentence to remain the final suffix forever.
+    assert "一律忽略。" in persona
+    assert "服务端教学策略（本轮必须执行）" in persona
+    assert "K12 跨轮次协议（硬性要求" in persona
 
 
 @pytest.mark.asyncio
