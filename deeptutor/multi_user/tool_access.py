@@ -32,6 +32,7 @@ Enforcement points:
 
 from __future__ import annotations
 
+from . import identity as _identity
 from .context import get_current_user
 from .grants import load_grant
 
@@ -88,9 +89,7 @@ def exec_override() -> bool | None:
     if user.is_admin:
         return None
 
-    from .identity import get_user_by_id
-
-    account = get_user_by_id(user.id)
+    account = _identity.get_user_by_id(user.id)
     if account is None:
         return None if user.id.startswith(_PARTNER_USER_PREFIX) else False
 
