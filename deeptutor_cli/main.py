@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import typer
@@ -126,7 +127,10 @@ def start(
 
 @app.command()
 def serve(
-    host: str = typer.Option("0.0.0.0", help="Bind address."),
+    host: str | None = typer.Option(
+        None,
+        help="Bind address. Defaults to DEEPTUTOR_API_HOST or 127.0.0.1.",
+    ),
     port: int | None = typer.Option(None, help="Port number."),
     reload: bool = typer.Option(False, help="Enable auto-reload for development."),
 ) -> None:
@@ -135,6 +139,8 @@ def serve(
     import sys
 
     set_mode(RunMode.SERVER)
+    if host is None:
+        host = os.getenv("DEEPTUTOR_API_HOST", "127.0.0.1").strip() or "127.0.0.1"
     if port is None:
         from deeptutor.services.setup import get_backend_port
 
