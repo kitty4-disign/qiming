@@ -6,7 +6,6 @@ on:
       - main
       - dev
       - feature/k12-competition-v2
-      - fix/first-principles-p0-p1-20260813
     paths:
       - "deeptutor/**"
       - "deeptutor_cli/**"
@@ -30,6 +29,10 @@ on:
       - "pyproject.toml"
       - "web/**"
       - ".github/workflows/tests.yml"
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:
@@ -55,6 +58,48 @@ jobs:
 
       - name: Run Ruff format check
         run: ruff format --check .
+
+  audit-regressions:
+    name: P0 P1 Regression Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-audit-pip-${{ hashFiles('requirements/server.txt', 'requirements/partners.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-audit-pip-
+
+      - name: Install regression test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/server.txt
+          pip install -r requirements/partners.txt
+          pip install pytest pytest-asyncio
+
+      - name: Run P0 P1 regression tests
+        run: |
+          pytest -q \
+            tests/core/agentic/test_tool_dispatch_events.py \
+            tests/api/test_plugins_api_security.py \
+            tests/api/test_unified_ws_ownership.py \
+            tests/education/test_learning_state_consistency.py \
+            tests/multi_user/test_tool_access.py \
+            tests/multi_user/test_tool_access_exec.py \
+            tests/services/sandbox/test_sandbox_security.py \
+            deeptutor/learning/tests/test_service_replace_merge.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}
 
   web-tests:
     name: Web Node Tests
@@ -185,7 +230,7 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [lint, web-tests, import-check, python-tests]
+    needs: [lint, audit-regressions, web-tests, import-check, python-tests]
     if: always()
 
     steps:
@@ -196,10 +241,11 @@ jobs:
           echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Lint and format | ${{ needs.lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| P0/P1 regressions | ${{ needs.audit-regressions.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Web node tests | ${{ needs.web-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Import check (3.11/3.12/3.13; 3.14 best-effort) | ${{ needs.import-check.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Python tests (3.11/3.12/3.13; 3.14 best-effort) | ${{ needs.python-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
 
       - name: Fail if tests failed
-        if: needs.lint.result == 'failure' || needs.web-tests.result == 'failure' || needs.import-check.result == 'failure' || needs.python-tests.result == 'failure'
+        if: needs.lint.result == 'failure' || needs.audit-regressions.result == 'failure' || needs.web-tests.result == 'failure' || needs.import-check.result == 'failure' || needs.python-tests.result == 'failure'
         run: exit 1
