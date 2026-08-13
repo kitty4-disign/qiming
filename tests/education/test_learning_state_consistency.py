@@ -32,7 +32,9 @@ def _module(*, kp_name: str = "new concept") -> LearningModule:
     )
 
 
-def test_replace_modules_clears_history_even_when_positional_kp_id_is_reused() -> None:
+def test_replace_modules_clears_history_even_when_positional_kp_id_is_reused(
+    tmp_path: Path,
+) -> None:
     progress = LearningProgress(book_id="path")
     progress.modules = [_module(kp_name="old concept")]
     progress.mastery_levels["path_m0_kp0"] = 1.0
@@ -53,7 +55,7 @@ def test_replace_modules_clears_history_even_when_positional_kp_id_is_reused() -
         expected_answer="old expected",
     )
 
-    LearningService(store=LearningStore(root=Path("/tmp/unused-learning-state"))).replace_modules(
+    LearningService(store=LearningStore(root=tmp_path / "learning")).replace_modules(
         progress,
         [_module(kp_name="completely different concept")],
     )
