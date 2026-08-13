@@ -97,6 +97,7 @@ jobs:
             tests/multi_user/test_tool_access.py \
             tests/multi_user/test_tool_access_exec.py \
             tests/services/sandbox/test_sandbox_security.py \
+            tests/runtime/test_launcher.py \
             deeptutor/learning/tests/test_service_replace_merge.py
         env:
           PYTHONPATH: ${{ github.workspace }}
