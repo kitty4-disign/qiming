@@ -6,6 +6,7 @@ on:
       - main
       - dev
       - feature/k12-competition-v2
+      - fix/first-principles-p0-p1-20260813
     paths:
       - "deeptutor/**"
       - "deeptutor_cli/**"
