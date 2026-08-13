@@ -40,7 +40,7 @@ def _make_profile(**overrides) -> StudentProfile:
 
 def _make_progress(
     *,
-    kp_names: list[str] = None,
+    kp_names: list[str] | None = None,
     mastery_levels: dict[str, float] | None = None,
     current_kp_index: int = 0,
     quiz_attempts: list[QuizAttempt] | None = None,
