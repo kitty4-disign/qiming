@@ -60,7 +60,7 @@ class _ConcurrentCreateStore:
         self._load_count += 1
         return None if self._load_count == 1 else self.winner
 
-    def save(self, progress: LearningProgress) -> None:
+    def save(self, _progress: LearningProgress) -> None:
         raise ConcurrentLearningUpdateError("simulated concurrent create")
 
 
@@ -148,16 +148,14 @@ def test_second_distinct_pending_question_is_rejected(tmp_path: Path) -> None:
             expected_answer="a1",
         ),
     )
+    next_pending = PendingQuestion(
+        question_id="q2",
+        knowledge_point_id="kp2",
+        expected_answer="a2",
+    )
 
     with pytest.raises(ValueError, match="already pending"):
-        service.set_pending_question(
-            progress,
-            PendingQuestion(
-                question_id="q2",
-                knowledge_point_id="kp2",
-                expected_answer="a2",
-            ),
-        )
+        service.set_pending_question(progress, next_pending)
 
     restored = service.get_or_create("path")
     assert restored.pending_question is not None
