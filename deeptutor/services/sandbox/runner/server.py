@@ -12,88 +12,46 @@ Design constraints:
     ``runner`` user, ``cap_drop: ALL``, ``no-new-privileges``, read-only rootfs
     — see ``Dockerfile.runner`` / ``docker-compose.yml``). On top of that we
     apply per-command resource limits via :func:`resource.setrlimit`.
+  * ``POST /exec`` is fail-closed unless the caller presents the shared bearer
+    token from ``DEEPTUTOR_SANDBOX_RUNNER_TOKEN``. ``GET /health`` remains
+    unauthenticated so container orchestration can probe liveness.
 
 Wire contract (must match ``RunnerSidecarBackend``):
 
   ``GET  /health`` -> 200, any body, means alive.
   ``POST /exec``   -> request/response JSON described by the dataclasses in
-                      :mod:`deeptutor.services.sandbox.spec`. Request::
-
-      {
-        "command": "str",
-        "workdir": "str | null",          # path inside the container
-        "env": {"K": "V"},
-        "mounts": [{"host_path": "...",     # informational only (see below)
-                    "sandbox_path": "...",
-                    "read_only": true}],
-        "limits": {"timeout_s": 30, "memory_mb": 512,
-                   "cpu_seconds": 30, "max_output_chars": 10000}
-      }
-
-  Response::
-
-      {"stdout": "...", "stderr": "...", "exit_code": 0,
-       "timed_out": false, "error": ""}
-
-  ``error`` is non-empty *only* when the runner itself failed (bad JSON,
-  spawn error, ...), never merely because the command exited non-zero.
-
-Mounts note:
-  This server does **not** perform any mounting. The runner container shares
-  the task-workspace subtrees with the main app at the *same* paths
-  (``/app/data/user/workspace`` for the admin scope, ``/app/data/users`` for
-  per-user scopes — via docker-compose). So when ``host_path == sandbox_path``
-  the directory is already visible here and no action is needed. We only
-  read/record the ``mounts`` field; what is visible is decided by the compose
-  volume layout, and ``workdir`` is validated against the same roots
-  (``DEEPTUTOR_RUNNER_ALLOWED_WORKDIRS``) as defence in depth.
+                      :mod:`deeptutor.services.sandbox.spec`.
 """
 
 from __future__ import annotations
 
+import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 import subprocess
 import sys
 import traceback
-from typing import Any
+from typing import Any, Mapping
 
 try:
     import resource
 except ImportError:  # pragma: no cover - Windows: resource is POSIX-only
     resource = None  # type: ignore[assignment]
 
-# Port to listen on inside the container; overridable for local testing.
 DEFAULT_PORT = 8900
-
-# Hard cap on the request body we are willing to read, to avoid a hostile or
-# buggy caller exhausting memory before we even parse the command.
+RUNNER_TOKEN_ENV = "DEEPTUTOR_SANDBOX_RUNNER_TOKEN"
 _MAX_REQUEST_BYTES = 4 * 1024 * 1024
-
-# Fallback ceilings used when the caller omits a limit (mirrors
-# ResourceLimits defaults in spec.py).
 _DEFAULT_TIMEOUT_S = 30
 _DEFAULT_MEMORY_MB = 512
 _DEFAULT_CPU_SECONDS = 30
 _DEFAULT_MAX_OUTPUT_CHARS = 10_000
-
-# Generous file-descriptor ceiling: high enough for normal tooling (git, build
-# steps), low enough to bound a runaway fd leak.
 _RLIMIT_NOFILE = 4096
-
-# POSIX-only: setrlimit / preexec_fn are not available on Windows. The runner
-# always ships in a Linux container, but guard so the module stays importable
-# (e.g. for syntax checks / unit tests) on any platform.
 _POSIX = os.name == "posix"
 
 
 def _truncate_head_tail(text: str, max_chars: int) -> str:
-    """Cap *text* to *max_chars*, keeping the head and tail (eliding the middle).
-
-    Matches the head+tail style used by ``ExecResult.render`` so the most
-    useful context (start of output and final error lines) survives.
-    """
+    """Cap *text* to *max_chars*, keeping the head and tail."""
     if max_chars <= 0 or len(text) <= max_chars:
         return text
     half = max_chars // 2
@@ -102,40 +60,22 @@ def _truncate_head_tail(text: str, max_chars: int) -> str:
 
 
 def _build_preexec_fn(memory_mb: int, cpu_seconds: int):
-    """Return a ``preexec_fn`` that applies rlimits in the forked child (POSIX).
-
-    The closure runs after ``fork`` and before ``exec`` in the child process,
-    so the limits apply to the command and everything it spawns. Returns
-    ``None`` on non-POSIX platforms (no rlimit support there).
-
-    Notes on portability:
-      * ``RLIMIT_AS`` (address space) is the most portable memory cap but it
-        bounds *virtual* memory, not RSS. Some runtimes (notably the JVM, and
-        occasionally glibc/threaded allocators) reserve large virtual ranges
-        and may fail under a tight ``RLIMIT_AS`` even with low real usage. The
-        compose ``mem_limit`` (cgroup-enforced RSS) is the authoritative
-        backstop; this rlimit is a cheap secondary guard.
-      * ``RLIMIT_CPU`` counts CPU seconds, not wall-clock; wall-clock is
-        enforced separately via ``subprocess`` ``timeout``.
-    """
+    """Return a ``preexec_fn`` that applies rlimits in the forked child."""
     if not _POSIX:
         return None
 
     def _apply() -> None:
-        # Address space (bytes). Cap virtual memory as a secondary guard.
         if memory_mb > 0:
             mem_bytes = memory_mb * 1024 * 1024
             try:
                 resource.setrlimit(resource.RLIMIT_AS, (mem_bytes, mem_bytes))
             except (ValueError, OSError):
                 pass
-        # CPU time (seconds). SIGXCPU/SIGKILL the child if it burns this much CPU.
         if cpu_seconds > 0:
             try:
                 resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
             except (ValueError, OSError):
                 pass
-        # Open file descriptors.
         try:
             resource.setrlimit(resource.RLIMIT_NOFILE, (_RLIMIT_NOFILE, _RLIMIT_NOFILE))
         except (ValueError, OSError):
@@ -144,9 +84,6 @@ def _build_preexec_fn(memory_mb: int, cpu_seconds: int):
     return _apply
 
 
-# Workdirs must stay inside the shared workspace volumes (defence in depth:
-# the app only ever sends task-workspace paths; a request outside them means
-# a bug or a forged request). Colon-separated, overridable per deployment.
 _ALLOWED_WORKDIR_ROOTS = [
     root
     for root in os.environ.get(
@@ -155,6 +92,23 @@ _ALLOWED_WORKDIR_ROOTS = [
     ).split(":")
     if root
 ]
+
+
+def _configured_token() -> str:
+    return os.environ.get(RUNNER_TOKEN_ENV, "").strip()
+
+
+def _request_authorized(headers: Mapping[str, str]) -> bool:
+    """Constant-time bearer-token check; missing server token fails closed."""
+    expected = _configured_token()
+    if not expected:
+        return False
+    authorization = str(headers.get("Authorization", "") or "")
+    prefix = "Bearer "
+    if not authorization.startswith(prefix):
+        return False
+    provided = authorization[len(prefix) :].strip()
+    return bool(provided) and hmac.compare_digest(provided, expected)
 
 
 def _workdir_violation(workdir: str) -> str:
@@ -173,8 +127,8 @@ def _workdir_violation(workdir: str) -> str:
 def execute(payload: dict[str, Any]) -> dict[str, Any]:
     """Run one command described by *payload* and return the response dict.
 
-    Never raises for command-level failures (those land in ``exit_code`` /
-    ``stderr``); only the runner's own failures populate ``error``.
+    Authentication is an HTTP-boundary concern and is enforced by ``_Handler``;
+    keeping this pure function separate makes request-shape/resource tests fast.
     """
     command = payload.get("command")
     if not isinstance(command, str) or not command:
@@ -188,9 +142,6 @@ def execute(payload: dict[str, Any]) -> dict[str, Any]:
         if reason:
             return _error_result(reason)
 
-    # Build the child environment. The caller's env fully replaces ours except
-    # for PATH, which we always provide so basic tooling resolves even if the
-    # caller sends an empty env.
     raw_env = payload.get("env") or {}
     if not isinstance(raw_env, dict):
         return _error_result("'env' must be an object")
@@ -198,9 +149,6 @@ def execute(payload: dict[str, Any]) -> dict[str, Any]:
     for key, value in raw_env.items():
         env[str(key)] = str(value)
 
-    # Mounts are informational here — the compose volume layout does the real
-    # work (see module docstring). We only validate the shape so a malformed
-    # request fails loudly rather than silently.
     mounts = payload.get("mounts") or []
     if not isinstance(mounts, list):
         return _error_result("'mounts' must be a list")
@@ -214,9 +162,6 @@ def execute(payload: dict[str, Any]) -> dict[str, Any]:
     max_output_chars = _int(limits.get("max_output_chars"), _DEFAULT_MAX_OUTPUT_CHARS)
 
     if not _POSIX or resource is None:
-        # The runner ships in a Linux container and applies its resource
-        # ceilings via ``resource.setrlimit``. Running the command without
-        # them would silently drop the memory/CPU sandbox, so refuse.
         return _error_result(
             "sandbox runner requires a POSIX platform with resource limits "
             "(unsupported on Windows)"
@@ -227,28 +172,28 @@ def execute(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         completed = subprocess.run(  # noqa: S602 - shell=True is the contract
             command,
-            shell=True,  # nosec B602 — the runner exists to execute shell commands in-sandbox
+            shell=True,  # nosec B602 — command executes inside hardened runner container
             cwd=workdir,
             env=env,
             timeout=timeout_s,
             capture_output=True,
             text=True,
-            preexec_fn=preexec_fn,  # POSIX-only; None elsewhere
+            preexec_fn=preexec_fn,
         )
     except subprocess.TimeoutExpired as exc:
-        # Surface whatever was captured before the kill, head+tail capped.
         stdout = _decode(exc.stdout)
         stderr = _decode(exc.stderr)
         return {
             "stdout": _truncate_head_tail(stdout, max_output_chars),
             "stderr": _truncate_head_tail(stderr, max_output_chars),
-            "exit_code": 124,  # conventional "timed out" exit status
+            "exit_code": 124,
             "timed_out": True,
             "error": "",
         }
     except (OSError, ValueError) as exc:
-        # Spawn failure (bad cwd, exec error, ...) — a runner-level problem.
-        return _error_result(f"{type(exc).__name__}: {exc}")
+        # Keep potentially sensitive filesystem details in container logs only.
+        traceback.print_exc()
+        return _error_result(f"runner spawn failed: {type(exc).__name__}")
 
     return {
         "stdout": _truncate_head_tail(completed.stdout or "", max_output_chars),
@@ -260,7 +205,6 @@ def execute(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _decode(value: Any) -> str:
-    """Coerce captured stream output (str | bytes | None) to str."""
     if value is None:
         return ""
     if isinstance(value, bytes):
@@ -269,7 +213,6 @@ def _decode(value: Any) -> str:
 
 
 def _int(value: Any, default: int) -> int:
-    """Best-effort int coercion with a fallback (never raises)."""
     try:
         result = int(value)
     except (TypeError, ValueError):
@@ -278,7 +221,6 @@ def _int(value: Any, default: int) -> int:
 
 
 def _error_result(message: str) -> dict[str, Any]:
-    """Build a response where only the runner-level ``error`` field is set."""
     return {
         "stdout": "",
         "stderr": "",
@@ -289,10 +231,8 @@ def _error_result(message: str) -> dict[str, Any]:
 
 
 class _Handler(BaseHTTPRequestHandler):
-    """Minimal request router for ``GET /health`` and ``POST /exec``."""
+    """Minimal request router for ``GET /health`` and authenticated ``POST /exec``."""
 
-    # Quiet the default per-request stderr logging; keep it terse and on stdout
-    # so container logs stay readable.
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         sys.stdout.write("runner: " + (format % args) + "\n")
 
@@ -319,6 +259,9 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path.rstrip("/") != "/exec":
             self._send_json(404, _error_result("not found"))
             return
+        if not _request_authorized(self.headers):
+            self._send_json(401, _error_result("unauthorized"))
+            return
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
@@ -332,27 +275,29 @@ class _Handler(BaseHTTPRequestHandler):
             payload = json.loads(raw.decode("utf-8")) if raw else {}
             if not isinstance(payload, dict):
                 raise ValueError("request body must be a JSON object")
-        except (ValueError, UnicodeDecodeError) as exc:
-            self._send_json(400, _error_result(f"invalid JSON: {exc}"))
+        except (ValueError, UnicodeDecodeError):
+            self._send_json(400, _error_result("invalid JSON"))
             return
 
         try:
             result = execute(payload)
-        except Exception as exc:  # noqa: BLE001 - last-resort guard
-            # Any unexpected runner crash becomes a clean error response rather
-            # than a dropped connection, so the client degrades gracefully.
+        except Exception:  # noqa: BLE001 - last-resort guard
             traceback.print_exc()
-            result = _error_result(f"runner crashed: {type(exc).__name__}: {exc}")
+            result = _error_result("runner internal error")
         self._send_json(200, result)
 
 
 def main() -> None:
-    """Start the threaded HTTP server, binding 0.0.0.0:$RUNNER_PORT."""
+    """Start the threaded HTTP server, binding inside the runner container."""
     if not _POSIX or resource is None:
         sys.stderr.write(
             "sandbox runner requires POSIX resource limits; refusing to serve on Windows\n"
         )
         sys.exit(2)
+    if not _configured_token():
+        sys.stderr.write(
+            f"runner: {RUNNER_TOKEN_ENV} is not set; /exec will reject all requests\n"
+        )
     try:
         port = int(os.environ.get("RUNNER_PORT", "") or DEFAULT_PORT)
     except ValueError:
