@@ -3,14 +3,14 @@ dashboard reflects the change."""
 
 from pathlib import Path
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 
 import deeptutor.api.routers.education as education_module
 from deeptutor.education.mastery_seed import ensure_course_mastery_path
 from deeptutor.education.profile_service import EducationProfileService
-from deeptutor.learning.models import QuizAttempt, ErrorType
+from deeptutor.learning.models import ErrorType, QuizAttempt
 from deeptutor.learning.service import LearningService
 from deeptutor.learning.storage import LearningStore
 

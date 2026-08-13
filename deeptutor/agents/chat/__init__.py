@@ -19,12 +19,12 @@ Usage:
     )
 """
 
+from . import agent_loop as _agent_loop
 from .agentic_pipeline import AgenticChatPipeline
 from .chat_agent import ChatAgent
 from .k12_finish_guard import install_k12_finish_guard
 from .session_manager import SessionManager
 from .tool_protocol_filter import ToolProtocolFilter as _ChunkSafeToolProtocolFilter
-from . import agent_loop as _agent_loop
 
 # ``AgentLoop`` resolves ``ToolProtocolFilter`` from its module globals when an
 # LLM call starts. Replace the legacy regex implementation after the module is

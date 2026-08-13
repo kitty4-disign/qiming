@@ -156,8 +156,9 @@ def register(app: typer.Typer) -> None:
         ),
     ) -> None:
         """Create or refresh the four stage-specific K12 textbook knowledge bases."""
-        from deeptutor.runtime.home import DEEPTUTOR_HOME_ENV, PACKAGE_ROOT
         import os
+
+        from deeptutor.runtime.home import DEEPTUTOR_HOME_ENV, PACKAGE_ROOT
 
         os.environ.setdefault(DEEPTUTOR_HOME_ENV, str(PACKAGE_ROOT))
         from deeptutor.education.knowledge_bootstrap import ensure_all_k12_knowledge_bases

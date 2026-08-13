@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from deeptutor.education.catalog import Course
 from deeptutor.education.path_ids import build_mastery_path_id
-from deeptutor.learning.models import KnowledgePoint, KnowledgeType, LearningModule, LearningProgress
+from deeptutor.learning.models import (
+    KnowledgePoint,
+    KnowledgeType,
+    LearningModule,
+    LearningProgress,
+)
 from deeptutor.learning.service import LearningService
 from deeptutor.learning.storage import LearningStore
 

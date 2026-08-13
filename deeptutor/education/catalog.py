@@ -3,8 +3,8 @@ from __future__ import annotations
 from functools import lru_cache
 from importlib import resources
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field
+import yaml
 
 from deeptutor.education.models import EducationStage, StudentProfile
 

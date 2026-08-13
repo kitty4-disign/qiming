@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import tempfile
 import threading
 import time
-import uuid
-from pathlib import Path
 from typing import Any
+import uuid
 
 from deeptutor.education.episode_models import LearningEpisode
 from deeptutor.services.path_service import get_path_service

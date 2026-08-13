@@ -1,8 +1,8 @@
 from pathlib import Path
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 
 import deeptutor.api.routers.education as education_router
 from deeptutor.education.activity_service import EducationActivityService

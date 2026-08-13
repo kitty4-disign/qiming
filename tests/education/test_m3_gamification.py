@@ -7,12 +7,13 @@ mastery + events on every call. No XP deduction, no leaderboard, no gacha.
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
+import time
 
 import pytest
 
 from deeptutor.education.activity_models import LearningEvent
+from deeptutor.education.catalog import load_catalog
 from deeptutor.education.gamification import (
     XP_BASE_PER_COMPLETION,
     XP_BONUS_FIRST_CORRECT,
@@ -20,7 +21,6 @@ from deeptutor.education.gamification import (
     compute_gamification,
 )
 from deeptutor.education.mastery_seed import ensure_course_mastery_path
-from deeptutor.education.catalog import load_catalog
 from deeptutor.education.models import EducationStage, StudentProfile
 from deeptutor.learning.service import LearningService
 from deeptutor.learning.storage import LearningStore
