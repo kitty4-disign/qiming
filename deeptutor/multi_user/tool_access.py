@@ -13,8 +13,8 @@ Exec is also deny-by-default for *registered real non-admin users*. The Docker
 runner currently has a shared filesystem view of all per-user workspaces, so
 SYSTEM container isolation is not equivalent to user isolation. A real user
 must therefore receive an explicit ``exec_enabled=true`` grant before the
-pipeline may mount exec. Synthetic partner users are not account records and
-continue to follow their owner-scoped partner tool policy.
+pipeline may mount exec. Synthetic partner users keep their owner-scoped
+partner tool policy, but any other unknown non-admin identity fails closed.
 
 Enforcement points:
 
@@ -34,6 +34,8 @@ from __future__ import annotations
 
 from .context import get_current_user
 from .grants import load_grant
+
+_PARTNER_USER_PREFIX = "partner_"
 
 
 def _current_grant() -> dict | None:
@@ -76,22 +78,21 @@ def exec_override() -> bool | None:
     """Resolve per-user exec policy.
 
     * admin: ``None`` — follow deployment isolation policy;
-    * synthetic non-account user (e.g. partner): ``None`` — its caller-owned
-      whitelist/policy remains authoritative;
+    * partner synthetic user: ``None`` — caller-owned partner policy remains
+      authoritative;
     * registered non-admin: explicit grant value, with missing/tri-state None
-      interpreted as ``False`` so shared-runner exec is never implicit.
+      interpreted as ``False``;
+    * any other unknown non-admin identity: ``False`` (fail closed).
     """
     user = get_current_user()
     if user.is_admin:
         return None
 
-    # Partners are synthetic CurrentUser objects and deliberately have no entry
-    # in the account registry. Do not reinterpret their owner-scoped policy as
-    # a missing real-user grant.
     from .identity import get_user_by_id
 
-    if get_user_by_id(user.id) is None:
-        return None
+    account = get_user_by_id(user.id)
+    if account is None:
+        return None if user.id.startswith(_PARTNER_USER_PREFIX) else False
 
     value = load_grant(user.id).get("exec_enabled")
     return value if isinstance(value, bool) else False
