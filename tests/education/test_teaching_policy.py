@@ -11,6 +11,7 @@ from deeptutor.learning.models import (
 
 
 def progress_for(kp_type: KnowledgeType = KnowledgeType.PROCEDURE) -> LearningProgress:
+    """Build the minimal learning progress used by teaching-policy tests."""
     kp = KnowledgePoint(id="kp", name="训练集与测试集", type=kp_type, module_id="m")
     return LearningProgress(
         book_id="path",
