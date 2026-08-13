@@ -15,8 +15,8 @@ import argparse
 import asyncio
 import json
 import os
-import sys
 from pathlib import Path
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -25,11 +25,11 @@ os.environ.setdefault("DEEPTUTOR_HOME", str(ROOT))
 
 try:
     from deeptutor.education.activity_service import EducationActivityService
+    from deeptutor.education.catalog import load_catalog
     from deeptutor.education.knowledge_bootstrap import ensure_all_k12_knowledge_bases
     from deeptutor.education.models import EducationStage, StudentProfile
     from deeptutor.education.path_ids import build_mastery_path_id
     from deeptutor.education.profile_service import EducationProfileService
-    from deeptutor.education.catalog import load_catalog
     from deeptutor.services.path_service import get_path_service
 except ImportError as exc:
     print(f"[k12_demo_seed] 无法导入 DeepTutor 模块: {exc}", file=sys.stderr)

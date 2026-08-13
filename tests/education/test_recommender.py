@@ -40,13 +40,15 @@ def _make_profile(**overrides) -> StudentProfile:
 
 def _make_progress(
     *,
-    kp_names: list[str] = ["像素与数字图像", "图像特征", "训练集与测试集", "图像分类"],
+    kp_names: list[str] | None = None,
     mastery_levels: dict[str, float] | None = None,
     current_kp_index: int = 0,
     quiz_attempts: list[QuizAttempt] | None = None,
     review_queue: list[ReviewTask] | None = None,
     pending_question: PendingQuestion | None = None,
 ) -> LearningProgress:
+    if kp_names is None:
+        kp_names = ["像素与数字图像", "图像特征", "训练集与测试集", "图像分类"]
     module_id = "m0"
     knowledge_points = [
         KnowledgePoint(

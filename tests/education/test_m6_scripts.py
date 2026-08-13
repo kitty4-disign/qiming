@@ -108,12 +108,27 @@ class TestPreflightChecks:
         assert len(report.results) == 1
         assert report.results[0].passed is True  # 磁盘空间充足
 
-    def test_check_web_build(self, preflight_module):
-        report = preflight_module.PreflightReport()
-        preflight_module.check_web_build(report)
-        assert len(report.results) == 1
-        # web/.next/BUILD_ID 应存在（已构建）
-        assert report.results[0].passed is True
+    def test_check_web_build(self, preflight_module, monkeypatch, tmp_path):
+        class _PathService:
+            project_root = tmp_path
+
+        monkeypatch.setattr(preflight_module, "_path_service", lambda: _PathService())
+
+        missing_report = preflight_module.PreflightReport()
+        preflight_module.check_web_build(missing_report)
+        assert len(missing_report.results) == 1
+        assert missing_report.results[0].passed is False
+        assert "npm run build" in missing_report.results[0].suggestion
+
+        build_id = tmp_path / "web" / ".next" / "BUILD_ID"
+        build_id.parent.mkdir(parents=True)
+        build_id.write_text("ci-test-build", encoding="utf-8")
+
+        built_report = preflight_module.PreflightReport()
+        preflight_module.check_web_build(built_report)
+        assert len(built_report.results) == 1
+        assert built_report.results[0].passed is True
+        assert "ci-test-build" in built_report.results[0].detail
 
     def test_check_model_config(self, preflight_module):
         report = preflight_module.PreflightReport()

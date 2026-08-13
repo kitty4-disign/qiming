@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import tempfile
 import threading
 import time
-import uuid
-from pathlib import Path
 from typing import Any
+import uuid
 
 from deeptutor.education.episode_models import LearningEpisode
 from deeptutor.services.path_service import get_path_service
@@ -75,7 +75,9 @@ class LearningEpisodeService:
             return LearningEpisode.model_validate(item)
         return None
 
-    def list_recent(self, *, course_id: str | None = None, limit: int = 20) -> list[LearningEpisode]:
+    def list_recent(
+        self, *, course_id: str | None = None, limit: int = 20
+    ) -> list[LearningEpisode]:
         items = self._load().get("episodes", [])
         if course_id:
             items = [item for item in items if item.get("course_id") == course_id]
@@ -116,7 +118,9 @@ class LearningEpisodeService:
     def _save(self, data: dict[str, Any]) -> None:
         path = self.path
         path.parent.mkdir(parents=True, exist_ok=True)
-        fd, temp_name = tempfile.mkstemp(prefix=".education_episodes_", suffix=".tmp", dir=path.parent)
+        fd, temp_name = tempfile.mkstemp(
+            prefix=".education_episodes_", suffix=".tmp", dir=path.parent
+        )
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(data, handle, ensure_ascii=False, indent=2)

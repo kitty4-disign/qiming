@@ -1,0 +1,58 @@
+name: Ruff Auto Fix
+
+on:
+  push:
+    branches:
+      - fix/first-principles-p0-p1-20260813
+    paths:
+      - ".github/workflows/ruff-autofix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Ruff
+        run: pip install ruff==0.16.2
+
+      - name: Apply Ruff fixes
+        run: |
+          ruff check . --fix --unsafe-fixes || true
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/education/test_recommender.py")
+          text = path.read_text(encoding="utf-8")
+          text = text.replace(
+              "kp_names: list[str] = None,",
+              "kp_names: list[str] | None = None,",
+          )
+          path.write_text(text, encoding="utf-8")
+          PY
+          git diff --check
+          ruff check .
+
+      - name: Commit fixes
+        run: |
+          if git diff --quiet; then
+            echo "No Ruff changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style: normalize Ruff autofix typing"
+          git push origin "HEAD:${{ github.ref_name }}"

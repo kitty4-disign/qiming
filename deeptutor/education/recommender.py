@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
-from typing import Mapping
+import time
 
 from deeptutor.education.activity_models import (
     EducationActivity,

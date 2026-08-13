@@ -26,6 +26,11 @@ def test_ensure_course_mastery_path_seeds_catalog_points(tmp_path: Path):
     assert first.book_id == "edu_k12_ai_primary_upper_image_recognition"
     assert len(first.modules) == 1
     assert [kp.name for kp in first.modules[0].knowledge_points] == course.knowledge_points
-    assert first.modules[0].knowledge_points[0].type.value in {"concept", "procedure", "memory", "design"}
+    assert first.modules[0].knowledge_points[0].type.value in {
+        "concept",
+        "procedure",
+        "memory",
+        "design",
+    }
     assert second.version == first.version
     assert second.modules[0].id == first.modules[0].id

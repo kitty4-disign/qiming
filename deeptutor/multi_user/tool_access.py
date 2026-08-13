@@ -9,6 +9,13 @@ unrestricted. Synthetic scopes (partners) are handled by the chat pipeline,
 where their owner-scoped whitelist travels through context metadata
 (``mcp_tools_filter`` / ``enabled_tools``).
 
+Exec is also deny-by-default for *registered real non-admin users*. The Docker
+runner currently has a shared filesystem view of all per-user workspaces, so
+SYSTEM container isolation is not equivalent to user isolation. A real user
+must therefore receive an explicit ``exec_enabled=true`` grant before the
+pipeline may mount exec. Synthetic partner users keep their owner-scoped
+partner tool policy, but any other unknown non-admin identity fails closed.
+
 Enforcement points:
 
 * ``allowed_optional_tools`` — turn_runtime filters every turn's ``tools``
@@ -25,8 +32,11 @@ Enforcement points:
 
 from __future__ import annotations
 
+from . import identity as _identity
 from .context import get_current_user
 from .grants import load_grant
+
+_PARTNER_USER_PREFIX = "partner_"
 
 
 def _current_grant() -> dict | None:
@@ -66,12 +76,25 @@ def allowed_mcp_tools() -> set[str] | None:
 
 
 def exec_override() -> bool | None:
-    """Per-user exec override: ``None`` follows the deployment policy."""
-    grant = _current_grant()
-    if grant is None:
+    """Resolve per-user exec policy.
+
+    * admin: ``None`` — follow deployment isolation policy;
+    * partner synthetic user: ``None`` — caller-owned partner policy remains
+      authoritative;
+    * registered non-admin: explicit grant value, with missing/tri-state None
+      interpreted as ``False``;
+    * any other unknown non-admin identity: ``False`` (fail closed).
+    """
+    user = get_current_user()
+    if user.is_admin:
         return None
-    value = grant.get("exec_enabled")
-    return value if isinstance(value, bool) else None
+
+    account = _identity.get_user_by_id(user.id)
+    if account is None:
+        return None if user.id.startswith(_PARTNER_USER_PREFIX) else False
+
+    value = load_grant(user.id).get("exec_enabled")
+    return value if isinstance(value, bool) else False
 
 
 def combine_whitelists(caller: set[str] | None, user: set[str] | None) -> set[str] | None:

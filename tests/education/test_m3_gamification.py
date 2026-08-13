@@ -7,12 +7,13 @@ mastery + events on every call. No XP deduction, no leaderboard, no gacha.
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
+import time
 
 import pytest
 
 from deeptutor.education.activity_models import LearningEvent
+from deeptutor.education.catalog import load_catalog
 from deeptutor.education.gamification import (
     XP_BASE_PER_COMPLETION,
     XP_BONUS_FIRST_CORRECT,
@@ -20,7 +21,6 @@ from deeptutor.education.gamification import (
     compute_gamification,
 )
 from deeptutor.education.mastery_seed import ensure_course_mastery_path
-from deeptutor.education.catalog import load_catalog
 from deeptutor.education.models import EducationStage, StudentProfile
 from deeptutor.learning.service import LearningService
 from deeptutor.learning.storage import LearningStore
@@ -116,7 +116,9 @@ def test_mastery_gate_grants_bonus(progress):
     progress.mastery_levels[kp_id] = 0.8
     events = [_event("e1", activity="quiz", kp_id=kp_id, score=1.0)]
     summary = compute_gamification(progress, events)
-    assert summary.xp_total == XP_BASE_PER_COMPLETION + XP_BONUS_FIRST_CORRECT + XP_BONUS_MASTERY_GATE
+    assert (
+        summary.xp_total == XP_BASE_PER_COMPLETION + XP_BONUS_FIRST_CORRECT + XP_BONUS_MASTERY_GATE
+    )
 
 
 def test_same_inputs_produce_same_outputs(progress):

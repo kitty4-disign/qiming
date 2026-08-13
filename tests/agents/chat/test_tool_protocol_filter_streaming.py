@@ -11,36 +11,51 @@ def _stream(parts: list[str]) -> str:
 
 
 def test_complete_tool_block_is_removed() -> None:
-    assert _stream([
-        "before ",
-        "<tool_call><function=mastery_grade>",
-        "<parameter=answer>B</parameter>",
-        "</function></tool_call>",
-        " after",
-    ]) == "before  after"
+    assert (
+        _stream(
+            [
+                "before ",
+                "<tool_call><function=mastery_grade>",
+                "<parameter=answer>B</parameter>",
+                "</function></tool_call>",
+                " after",
+            ]
+        )
+        == "before  after"
+    )
 
 
 def test_parameter_payload_does_not_leak_across_chunks() -> None:
-    assert _stream([
-        "visible ",
-        "<tool_",
-        "call><func",
-        "tion=mastery_grade><parameter=answer>",
-        "B",
-        "</para",
-        "meter></function></tool_call>",
-        " done",
-    ]) == "visible  done"
+    assert (
+        _stream(
+            [
+                "visible ",
+                "<tool_",
+                "call><func",
+                "tion=mastery_grade><parameter=answer>",
+                "B",
+                "</para",
+                "meter></function></tool_call>",
+                " done",
+            ]
+        )
+        == "visible  done"
+    )
 
 
 def test_function_block_without_outer_tool_call_is_removed() -> None:
-    assert _stream([
-        "x",
-        "<function=mastery_status>",
-        "secret payload",
-        "</function>",
-        "y",
-    ]) == "xy"
+    assert (
+        _stream(
+            [
+                "x",
+                "<function=mastery_status>",
+                "secret payload",
+                "</function>",
+                "y",
+            ]
+        )
+        == "xy"
+    )
 
 
 def test_standalone_parameter_block_is_removed() -> None:

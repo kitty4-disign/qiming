@@ -28,7 +28,8 @@ from .sqlite_store import (
     get_sqlite_session_store,
     make_imported_session_id,
 )
-from .turn_runtime import TurnRuntimeManager, get_turn_runtime_manager as _get_turn_runtime_manager
+from .turn_runtime import TurnRuntimeManager
+from .turn_runtime import get_turn_runtime_manager as _get_turn_runtime_manager
 
 
 def get_turn_runtime_manager() -> TurnRuntimeManager:

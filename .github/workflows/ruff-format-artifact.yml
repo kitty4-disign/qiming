@@ -1,0 +1,44 @@
+name: Ruff Format Artifact
+
+on:
+  push:
+    branches:
+      - fix/first-principles-p0-p1-20260813
+    paths:
+      - ".github/workflows/ruff-format-artifact.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  format-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Ruff
+        run: pip install ruff==0.16.2
+
+      - name: Format working tree
+        run: |
+          ruff format .
+          git diff --check
+          git diff --name-only > ruff-formatted-files.txt
+          tar -czf ruff-formatted-files.tar.gz -T ruff-formatted-files.txt
+
+      - name: Upload formatted files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruff-formatted-files
+          path: |
+            ruff-formatted-files.tar.gz
+            ruff-formatted-files.txt
+          if-no-files-found: error

@@ -45,15 +45,24 @@ class SandboxBackend:
 
 
 class RunnerSidecarBackend(SandboxBackend):
-    """Delegate execution to the runner sidecar over HTTP."""
+    """Delegate execution to the runner sidecar over authenticated HTTP."""
 
     level = IsolationLevel.SYSTEM
 
-    def __init__(self, base_url: str, *, connect_timeout_s: float = 5.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        token: str = "",
+        connect_timeout_s: float = 5.0,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
+        self._token = token.strip()
         self._connect_timeout_s = connect_timeout_s
 
     async def exec(self, request: ExecRequest) -> ExecResult:
+        if not self._token:
+            return ExecResult(error="runner authentication token is not configured")
         payload = {
             "command": request.command,
             "workdir": request.workdir,
@@ -79,13 +88,18 @@ class RunnerSidecarBackend(SandboxBackend):
             request.limits.timeout_s + 15,
             connect=self._connect_timeout_s,
         )
+        headers = {"Authorization": f"Bearer {self._token}"}
         try:
             async with httpx.AsyncClient(timeout=http_timeout) as client:
-                resp = await client.post(f"{self._base_url}/exec", json=payload)
+                resp = await client.post(
+                    f"{self._base_url}/exec",
+                    json=payload,
+                    headers=headers,
+                )
                 resp.raise_for_status()
                 data = resp.json()
         except httpx.HTTPError as exc:
-            return ExecResult(error=f"runner unavailable: {type(exc).__name__}: {exc}")
+            return ExecResult(error=f"runner unavailable: {type(exc).__name__}")
         return ExecResult(
             stdout=str(data.get("stdout", "")),
             stderr=str(data.get("stderr", "")),
@@ -95,6 +109,8 @@ class RunnerSidecarBackend(SandboxBackend):
         )
 
     async def health(self) -> tuple[bool, str]:
+        if not self._token:
+            return False, "runner token missing"
         try:
             async with httpx.AsyncClient(timeout=self._connect_timeout_s) as client:
                 resp = await client.get(f"{self._base_url}/health")
@@ -170,10 +186,30 @@ class RestrictedSubprocessBackend(SandboxBackend):
     level = IsolationLevel.APPLICATION
 
     _SAFE_ENV_KEYS = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR")
+    # Never let an LLM/tool request override variables that can redirect binary
+    # resolution or inject code into a host-side process before its main entry
+    # point. The subprocess backend is already a degraded local-dev fallback;
+    # it should not silently turn request metadata into a loader-level escape.
+    _BLOCKED_REQUEST_ENV_KEYS = frozenset(
+        {
+            "PATH",
+            "PYTHONPATH",
+            "PYTHONHOME",
+            "LD_PRELOAD",
+            "LD_LIBRARY_PATH",
+            "DYLD_INSERT_LIBRARIES",
+            "DYLD_LIBRARY_PATH",
+            "BASH_ENV",
+            "ENV",
+        }
+    )
 
     async def exec(self, request: ExecRequest) -> ExecResult:
         env = {k: os.environ[k] for k in self._SAFE_ENV_KEYS if k in os.environ}
-        env.update(request.env)
+        for key, value in request.env.items():
+            if str(key).upper() in self._BLOCKED_REQUEST_ENV_KEYS:
+                continue
+            env[str(key)] = str(value)
         cwd = request.workdir or None
         try:
             process = await asyncio.create_subprocess_shell(
@@ -184,7 +220,7 @@ class RestrictedSubprocessBackend(SandboxBackend):
                 env=env,
             )
         except Exception as exc:
-            return ExecResult(error=f"{type(exc).__name__}: {exc}")
+            return ExecResult(error=f"{type(exc).__name__}")
         return await _communicate(process, request.limits.timeout_s)
 
 

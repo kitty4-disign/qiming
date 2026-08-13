@@ -120,7 +120,10 @@ class ToolProtocolFilter:
                 "<parameter",
                 "</parameter",
             )
-            if any(prefix.startswith(lowered) or lowered.startswith(prefix) for prefix in protocol_prefixes):
+            if any(
+                prefix.startswith(lowered) or lowered.startswith(prefix)
+                for prefix in protocol_prefixes
+            ):
                 remaining = remaining[:last_lt]
         return remaining
 

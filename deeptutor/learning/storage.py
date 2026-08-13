@@ -9,8 +9,15 @@ import uuid
 from deeptutor.learning.models import LearningProgress
 from deeptutor.services.path_service import get_path_service
 
-# Module-level lock so CAS semantics hold across all store instances.
+# Module-level lock serializes the compare + write critical section across all
+# LearningStore instances in this process. The persisted version check below is
+# what prevents two independently loaded progress objects from silently
+# overwriting one another.
 _cas_lock = threading.Lock()
+
+
+class ConcurrentLearningUpdateError(RuntimeError):
+    """Raised when a stale LearningProgress tries to overwrite newer state."""
 
 
 def _atomic_write_text(path: Path, text: str) -> None:
@@ -36,12 +43,31 @@ class LearningStore:
         return self._root / f"{book_id}.json"
 
     def save(self, progress: LearningProgress) -> None:
+        path = self._path(progress.book_id)
         with _cas_lock:
+            if path.exists():
+                stored_data = json.loads(path.read_text(encoding="utf-8"))
+                stored_version = int(stored_data.get("version", 0) or 0)
+                if stored_version != progress.version:
+                    raise ConcurrentLearningUpdateError(
+                        "Learning progress changed concurrently "
+                        f"(book_id={progress.book_id!r}, expected_version={progress.version}, "
+                        f"stored_version={stored_version}). Reload before retrying."
+                    )
+            elif progress.version != 0:
+                # A non-zero in-memory version whose file disappeared is stale
+                # too; recreating it would resurrect deleted/rotated state.
+                raise ConcurrentLearningUpdateError(
+                    "Learning progress storage changed concurrently "
+                    f"(book_id={progress.book_id!r}, expected_version={progress.version}, "
+                    "stored_version=missing). Reload before retrying."
+                )
+
             progress.updated_at = time.time()
             progress.version += 1
             data = progress.model_dump(mode="json")
             text = json.dumps(data, ensure_ascii=False, indent=2)
-            _atomic_write_text(self._path(progress.book_id), text)
+            _atomic_write_text(path, text)
 
     def load(self, book_id: str) -> LearningProgress | None:
         path = self._path(book_id)
@@ -64,4 +90,4 @@ class LearningStore:
         return sorted(p.stem for p in self._root.glob("*.json") if not p.name.startswith("."))
 
 
-__all__ = ["LearningStore"]
+__all__ = ["LearningStore", "ConcurrentLearningUpdateError"]

@@ -16,7 +16,7 @@ from deeptutor.learning.models import (
     QuizAttempt,
     RetryAttempt,
 )
-from deeptutor.learning.storage import LearningStore
+from deeptutor.learning.storage import ConcurrentLearningUpdateError, LearningStore
 
 if TYPE_CHECKING:
     from deeptutor.learning.scheduler import SpacedRepetitionScheduler
@@ -31,7 +31,18 @@ class LearningService:
         if existing is not None:
             return existing
         progress = LearningProgress(book_id=book_id)
-        self._store.save(progress)  # persist immediately to prevent race
+        try:
+            self._store.save(progress)
+        except ConcurrentLearningUpdateError:
+            # Another request may have created the same path between our load
+            # and save. Re-read the winner rather than surfacing an expected
+            # initialization race to the learner. A missing winner means the
+            # conflict came from a different storage mutation and must remain
+            # visible instead of being guessed away.
+            existing = self._store.load(book_id)
+            if existing is not None:
+                return existing
+            raise
         return progress
 
     def init_modules(self, progress: LearningProgress, modules: list[LearningModule]) -> None:
@@ -39,40 +50,89 @@ class LearningService:
         self.replace_modules(progress, modules)
 
     def replace_modules(self, progress: LearningProgress, modules: list[LearningModule]) -> None:
-        """Replace all modules and clean stale KP state."""
-        new_kp_ids = {kp.id for m in modules for kp in m.knowledge_points}
+        """Replace modules without attaching old evidence to a changed concept.
 
-        # Clean stale KP state
-        for key in list(progress.mastery_levels.keys()):
-            if key not in new_kp_ids:
-                del progress.mastery_levels[key]
-        for key in list(progress.knowledge_types.keys()):
-            if key not in new_kp_ids:
-                del progress.knowledge_types[key]
-        for key in list(progress.repetition_states.keys()):
-            if key not in new_kp_ids:
-                del progress.repetition_states[key]
-        progress.error_records = [
-            r for r in progress.error_records if r.knowledge_point_id in new_kp_ids
-        ]
-        progress.feynman_retries = {
-            k: v for k, v in progress.feynman_retries.items() if k in new_kp_ids
+        Mastery-path knowledge-point ids are positional, so an id alone is not
+        a stable identity across a curriculum rebuild. State is preserved only
+        when the old and new KP with that id keep the same semantic fingerprint
+        (name and type). Module membership is deliberately excluded: moving an
+        unchanged KP between modules is an organizational edit, not a new
+        concept. A positional id reused for a different concept therefore loses
+        its old mastery/quiz history, while append/reorder operations retain
+        evidence for genuinely unchanged KPs.
+        """
+
+        def _fingerprints(source: list[LearningModule]) -> dict[str, tuple[str, str]]:
+            result: dict[str, tuple[str, str]] = {}
+            for module in source:
+                for kp in module.knowledge_points:
+                    kp_type = getattr(kp.type, "value", kp.type)
+                    result[kp.id] = (str(kp.name).strip(), str(kp_type))
+            return result
+
+        old_fingerprints = _fingerprints(list(progress.modules))
+        new_fingerprints = _fingerprints(list(modules))
+        preserved_kp_ids = {
+            kp_id
+            for kp_id, fingerprint in new_fingerprints.items()
+            if old_fingerprints.get(kp_id) == fingerprint
         }
-        progress.feynman_explanations = {
-            k: v for k, v in progress.feynman_explanations.items() if k in new_kp_ids
+
+        progress.mastery_levels = {
+            key: value for key, value in progress.mastery_levels.items() if key in preserved_kp_ids
+        }
+        progress.qualitative_mastery = {
+            key: value
+            for key, value in progress.qualitative_mastery.items()
+            if key in preserved_kp_ids
+        }
+        progress.quiz_attempts = [
+            attempt
+            for attempt in progress.quiz_attempts
+            if attempt.knowledge_point_id in preserved_kp_ids
+        ]
+        progress.error_records = [
+            record
+            for record in progress.error_records
+            if record.knowledge_point_id in preserved_kp_ids
+        ]
+        progress.repetition_states = {
+            key: value
+            for key, value in progress.repetition_states.items()
+            if key in preserved_kp_ids
         }
         progress.review_queue = [
-            t for t in progress.review_queue if t.knowledge_point_id in new_kp_ids
+            item for item in progress.review_queue if item.knowledge_point_id in preserved_kp_ids
         ]
-        # Clear global stage failure records — different modules should not share failure counts
+        progress.feynman_retries = {
+            key: value for key, value in progress.feynman_retries.items() if key in preserved_kp_ids
+        }
+        progress.feynman_explanations = {
+            key: value
+            for key, value in progress.feynman_explanations.items()
+            if key in preserved_kp_ids
+        }
+        if (
+            progress.pending_question is not None
+            and progress.pending_question.knowledge_point_id not in preserved_kp_ids
+        ):
+            progress.pending_question = None
+
+        # Stage failure counters are not tied strongly enough to one stable KP
+        # identity to migrate safely across a map rebuild.
         progress.stage_failure_counts = {}
         progress.stage_failure_notes = {}
 
-        # Set new modules
         progress.modules = list(modules)
-        for mod in modules:
-            for kp in mod.knowledge_points:
-                progress.knowledge_types[kp.id] = kp.type
+        progress.knowledge_types = {
+            kp.id: kp.type for module in modules for kp in module.knowledge_points
+        }
+
+        valid_module_ids = {m.id for m in modules}
+        if progress.current_module_id not in valid_module_ids:
+            progress.current_module_id = modules[0].id if modules else ""
+            progress.current_kp_index = 0
+        progress.updated_at = time.time()
 
     def advance_stage(self, progress: LearningProgress, next_stage: LearningStage) -> None:
         progress.current_stage = next_stage
@@ -95,7 +155,6 @@ class LearningService:
 
     def record_quiz_attempt(self, progress: LearningProgress, attempt: QuizAttempt) -> None:
         if not attempt.is_correct and attempt.error_type is not None:
-            # Find existing error record for this question + knowledge point.
             existing = None
             for rec in progress.error_records:
                 if (
@@ -127,7 +186,6 @@ class LearningService:
                 progress.error_records.append(record)
 
         elif attempt.is_correct:
-            # Graduate any active error record for this question + knowledge point.
             for rec in progress.error_records:
                 if (
                     rec.question_id == attempt.question_id
@@ -174,10 +232,11 @@ class LearningService:
         """Grade one answer and fold it through the full post-answer pipeline.
 
         record attempt -> recompute mastery -> advance the spaced-repetition
-        state -> rebuild the review queue -> persist. This is the single source
-        of truth for what happens when a student answers, shared by every
-        interactive stage. Grading is fail-closed: with no stored expected
-        answer the attempt is recorded wrong, never right.
+        state -> rebuild the review queue -> clear the matching pending question
+        -> persist. This is the single source of truth for what happens when a
+        student answers, shared by every interactive stage. Grading is
+        fail-closed: with no stored expected answer the attempt is recorded
+        wrong, never right.
         """
         is_correct = bool(expected_answer) and grade_answer(
             user_answer, expected_answer, question_type
@@ -196,7 +255,9 @@ class LearningService:
         )
         if knowledge_point_id:
             self.update_mastery(
-                progress, knowledge_point_id, self.calculate_mastery(progress, knowledge_point_id)
+                progress,
+                knowledge_point_id,
+                self.calculate_mastery(progress, knowledge_point_id),
             )
             kp_type = progress.knowledge_types.get(knowledge_point_id)
             if kp_type is not None and scheduler is not None:
@@ -206,19 +267,29 @@ class LearningService:
                 progress.repetition_states[knowledge_point_id] = state
                 scheduler.schedule_next(state, kp_type, is_correct)
                 progress.review_queue = scheduler.build_review_queue(progress)
+
+        pending = progress.pending_question
+        if pending is not None and pending.question_id == question_id:
+            progress.pending_question = None
+            progress.updated_at = time.time()
+
         self.save(progress)
         return is_correct
 
-    # ── Loop-driven tutoring helpers ─────────────────────────────────────
-
     def set_pending_question(self, progress: LearningProgress, pending: PendingQuestion) -> None:
-        """Store the question the tutor just posed so its expected answer can
-        be graded deterministically on a later turn (never via the model)."""
+        """Store the one outstanding question used for deterministic grading."""
+        existing = progress.pending_question
+        if existing is not None and existing.question_id != pending.question_id:
+            raise ValueError(
+                "A mastery question is already pending; grade or clear it before posing another."
+            )
         progress.pending_question = pending
         progress.updated_at = time.time()
         self.save(progress)
 
     def clear_pending_question(self, progress: LearningProgress) -> None:
+        if progress.pending_question is None:
+            return
         progress.pending_question = None
         progress.updated_at = time.time()
         self.save(progress)
@@ -231,11 +302,6 @@ class LearningService:
         passed: bool,
         evidence: str = "",
     ) -> None:
-        """Record the qualitative (CONCEPT / DESIGN) gate outcome.
-
-        The boolean is the gate of record; ``mastery_levels`` is nudged only so
-        the map's colour matches the gate (full on pass, capped on fail).
-        """
         progress.qualitative_mastery[kp_id] = bool(passed)
         current = progress.mastery_levels.get(kp_id, 0.0)
         progress.mastery_levels[kp_id] = max(current, 1.0) if passed else min(current, 0.4)
@@ -256,13 +322,11 @@ class LearningService:
                 progress = self._store.load(bid)
                 if progress is None:
                     continue
-                # Only count KPs from current modules (exclude stale IDs)
                 current_kp_ids = {kp.id for m in progress.modules for kp in m.knowledge_points}
                 total_kps = len(current_kp_ids)
                 total_mastery = sum(
                     progress.mastery_levels.get(kp_id, 0) for kp_id in current_kp_ids
                 )
-                # Derive display name from first module, fall back to book_id
                 display_name = ""
                 if progress.modules:
                     display_name = progress.modules[0].name or ""
@@ -275,7 +339,6 @@ class LearningService:
                         "current_stage": progress.current_stage.value
                         if progress.current_stage
                         else "",
-                        # Average mastery across current KPs (not the % of KPs mastered).
                         "avg_mastery_pct": round(total_mastery / total_kps * 100)
                         if total_kps
                         else 0,

@@ -27,10 +27,16 @@ FRONTEND_READY_TIMEOUT = 120
 FRONTEND_REUSE_PROBE_TIMEOUT = 2
 KILL_SIGNAL = getattr(signal, "SIGKILL", signal.SIGTERM)
 WEB_CACHE_DIR = Path("data") / "user" / "runtime" / "web"
+DEFAULT_BIND_HOST = "127.0.0.1"
 
 # Mutable holder so module-level helpers can format messages in the active
 # UI language without threading the labels through every function.
 _ACTIVE_LABELS: dict[str, str] = labels_for("en")
+
+
+def _bind_host(env_name: str) -> str:
+    """Resolve a network bind host without exposing services by default."""
+    return os.getenv(env_name, DEFAULT_BIND_HOST).strip() or DEFAULT_BIND_HOST
 
 
 def _t(key: str, **kwargs: object) -> str:
@@ -743,6 +749,8 @@ def start(home: str | Path | None = None) -> None:
     settings = load_launch_settings(runtime_home)
     runtime_env = export_runtime_settings_to_env(overwrite=True)
     auth_enabled = bool(load_auth_settings()["enabled"])
+    api_host = _bind_host("DEEPTUTOR_API_HOST")
+    frontend_host = _bind_host("DEEPTUTOR_FRONTEND_HOST")
 
     global _ACTIVE_LABELS
     language = resolve_language()
@@ -819,7 +827,7 @@ def start(home: str | Path | None = None) -> None:
     common_env["BACKEND_PORT"] = str(backend_port)
     common_env["FRONTEND_PORT"] = str(frontend_port)
     common_env["PORT"] = str(frontend_port)
-    common_env["HOSTNAME"] = "0.0.0.0"
+    common_env["HOSTNAME"] = frontend_host
     common_env["NEXT_PUBLIC_API_BASE"] = api_base
     common_env["NEXT_PUBLIC_AUTH_ENABLED"] = "true" if auth_enabled else "false"
     # The Next.js middleware (web/proxy.ts) runs in the frontend's Node runtime
@@ -838,7 +846,7 @@ def start(home: str | Path | None = None) -> None:
         "uvicorn",
         "deeptutor.api.main:app",
         "--host",
-        "0.0.0.0",
+        api_host,
         "--port",
         str(backend_port),
         "--log-level",

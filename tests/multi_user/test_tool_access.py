@@ -44,7 +44,8 @@ def test_normalize_migrates_v1_to_v2():
     assert "spaces" not in grant
     assert grant["knowledge_bases"] == [{"resource_id": "admin:kb:demo"}]
     assert grant["skills"] == [{"skill_id": "writer"}]
-    # Absent v2 fields default to unrestricted.
+    # Storage normalization keeps tri-state None; runtime exec resolution below
+    # intentionally interprets that state as deny for real non-admin users.
     assert grant["enabled_tools"] is None
     assert grant["mcp_tools"] is None
     assert grant["exec_enabled"] is None
@@ -62,7 +63,8 @@ def test_normalize_tool_lists_and_exec():
     assert grant["enabled_tools"] == ["web_search", "reason"]
     assert grant["mcp_tools"] == []
     assert grant["exec_enabled"] is False
-    # Non-bool exec values fall back to "follow policy".
+    # Non-bool exec values normalize to the tri-state value; runtime resolution
+    # then fails closed for a real non-admin account.
     assert normalize_grant("u_alice", {"exec_enabled": "yes"})["exec_enabled"] is None
 
 
@@ -73,11 +75,14 @@ def test_admin_is_never_restricted(as_user):
         assert exec_override() is None
 
 
-def test_user_without_grant_keeps_builtins_unrestricted_but_denies_mcp(as_user, mu_isolated_root):
+def test_user_without_grant_keeps_builtins_unrestricted_but_denies_mcp_and_exec(
+    as_user,
+    mu_isolated_root,
+):
     with as_user("u_alice"):
         assert allowed_optional_tools() is None
         assert allowed_mcp_tools() == set()
-        assert exec_override() is None
+        assert exec_override() is False
 
 
 def test_user_whitelists_resolve_from_grant(as_user, grantable_alice):
