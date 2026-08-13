@@ -69,9 +69,7 @@ async def test_k12_capability_enables_mastery_and_uses_stable_path(
         education_context=EducationContext(
             stage="primary_upper",
             grade=5,
-            knowledge_point_id=(
-                "edu_k12_ai_primary_upper_image_recognition_m0_kp0"
-            ),
+            knowledge_point_id=("edu_k12_ai_primary_upper_image_recognition_m0_kp0"),
         ),
     )
     await K12TutorCapability().run(context, StreamBus())

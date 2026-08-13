@@ -175,14 +175,17 @@ def test_grade_persists_attempt_and_pending_clear_in_one_write(tmp_path: Path) -
         ),
     )
 
-    assert service.grade_and_record(
-        progress,
-        question_id="q1",
-        knowledge_point_id="kp1",
-        module_id="m1",
-        user_answer="A",
-        expected_answer="A",
-    ) is True
+    assert (
+        service.grade_and_record(
+            progress,
+            question_id="q1",
+            knowledge_point_id="kp1",
+            module_id="m1",
+            user_answer="A",
+            expected_answer="A",
+        )
+        is True
+    )
 
     restored = service.get_or_create("path")
     assert restored.pending_question is None

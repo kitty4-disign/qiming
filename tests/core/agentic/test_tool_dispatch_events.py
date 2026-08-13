@@ -108,7 +108,7 @@ async def test_overflow_tool_calls_keep_one_to_one_tool_message_pairing() -> Non
     assert len(registry.calls) == MAX_PARALLEL_TOOL_CALLS
     assert len(outcome.tool_messages) == total
     assert [m["tool_call_id"] for m in outcome.tool_messages] == [f"c{i}" for i in range(total)]
-    overflow = outcome.tool_messages[MAX_PARALLEL_TOOL_CALLS :]
+    overflow = outcome.tool_messages[MAX_PARALLEL_TOOL_CALLS:]
     assert all("skipped" in m["content"] for m in overflow)
 
 

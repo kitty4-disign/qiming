@@ -29,7 +29,9 @@ def test_catalog_is_version_2(catalog: CurriculumCatalog):
 
 def test_each_textbook_has_at_least_two_courses(catalog: CurriculumCatalog):
     for textbook in catalog.textbooks:
-        assert len(textbook.courses) >= 2, f"{textbook.id} has only {len(textbook.courses)} course(s)"
+        assert len(textbook.courses) >= 2, (
+            f"{textbook.id} has only {len(textbook.courses)} course(s)"
+        )
 
 
 def test_each_stage_has_flagship_and_second_course(catalog: CurriculumCatalog):

@@ -105,9 +105,7 @@ class LearningService:
             item for item in progress.review_queue if item.knowledge_point_id in preserved_kp_ids
         ]
         progress.feynman_retries = {
-            key: value
-            for key, value in progress.feynman_retries.items()
-            if key in preserved_kp_ids
+            key: value for key, value in progress.feynman_retries.items() if key in preserved_kp_ids
         }
         progress.feynman_explanations = {
             key: value

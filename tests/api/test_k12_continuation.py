@@ -125,9 +125,7 @@ async def test_k12_reply_waits_for_terminal_and_preserves_session_context() -> N
         "persona": "Socratic",
         "llm_selection": {"profile_id": "profile-1", "model_id": "model-1"},
     }
-    runtime = _FakeRuntime(
-        _FakeStore(statuses=["running", "completed"], preferences=preferences)
-    )
+    runtime = _FakeRuntime(_FakeStore(statuses=["running", "completed"], preferences=preferences))
 
     follow_up = await continue_k12_reply(
         runtime,
@@ -167,9 +165,7 @@ async def test_duplicate_quiz_card_does_not_start_second_follow_up() -> None:
             "quiz_last_answered_turn_id": "turn-1",
         }
     }
-    runtime = _FakeRuntime(
-        _FakeStore(statuses=["completed"], preferences=preferences)
-    )
+    runtime = _FakeRuntime(_FakeStore(statuses=["completed"], preferences=preferences))
 
     follow_up = await continue_k12_reply(
         runtime,
@@ -196,9 +192,7 @@ async def test_installed_wrapper_returns_new_turn_id_for_k12() -> None:
 
 @pytest.mark.asyncio
 async def test_installed_wrapper_delegates_non_k12_reply() -> None:
-    runtime = _FakeRuntime(
-        _FakeStore(statuses=["running"], capability="chat")
-    )
+    runtime = _FakeRuntime(_FakeStore(statuses=["running"], capability="chat"))
     install_k12_continuation(runtime)
 
     result = await runtime.submit_user_reply("turn-1", text="hello")

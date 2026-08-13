@@ -135,4 +135,3 @@ def test_coding_mode_forbids_fabricating_tool_output():
     )
     assert "不能由模型编造" in text
     assert "可运行框架" in text
-

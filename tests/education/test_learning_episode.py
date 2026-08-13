@@ -125,9 +125,7 @@ def test_episode_api_closes_learning_cycle(episode_client: TestClient):
     evidence = completed.json()["episode"]
     assert evidence["raw_gain"] == 50
     assert evidence["status"] == "completed"
-    assert episode_client.get("/api/v1/education/episodes/current").json() == {
-        "episode": None
-    }
+    assert episode_client.get("/api/v1/education/episodes/current").json() == {"episode": None}
 
 
 def test_episode_rejects_knowledge_point_from_other_course(episode_client: TestClient):

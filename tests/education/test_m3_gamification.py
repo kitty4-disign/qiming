@@ -116,7 +116,9 @@ def test_mastery_gate_grants_bonus(progress):
     progress.mastery_levels[kp_id] = 0.8
     events = [_event("e1", activity="quiz", kp_id=kp_id, score=1.0)]
     summary = compute_gamification(progress, events)
-    assert summary.xp_total == XP_BASE_PER_COMPLETION + XP_BONUS_FIRST_CORRECT + XP_BONUS_MASTERY_GATE
+    assert (
+        summary.xp_total == XP_BASE_PER_COMPLETION + XP_BONUS_FIRST_CORRECT + XP_BONUS_MASTERY_GATE
+    )
 
 
 def test_same_inputs_produce_same_outputs(progress):

@@ -19,9 +19,7 @@ def _sse_payload(chunk: str) -> dict:
 
 def test_plugin_capability_request_forbids_unknown_top_level_fields() -> None:
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-        CapabilityExecuteRequest.model_validate(
-            {"content": "start", "unexpected": True}
-        )
+        CapabilityExecuteRequest.model_validate({"content": "start", "unexpected": True})
 
 
 @pytest.mark.asyncio
@@ -38,9 +36,7 @@ async def test_plugin_k12_execution_validates_and_injects_education_context(
             captured["context"] = context
             yield StreamEvent(type=StreamEventType.DONE, source="k12_tutor")
 
-    monkeypatch.setattr(
-        "deeptutor.runtime.orchestrator.ChatOrchestrator", FakeOrchestrator
-    )
+    monkeypatch.setattr("deeptutor.runtime.orchestrator.ChatOrchestrator", FakeOrchestrator)
     body = CapabilityExecuteRequest(
         content="start",
         config={
@@ -54,9 +50,7 @@ async def test_plugin_k12_execution_validates_and_injects_education_context(
         },
     )
 
-    chunks = [
-        chunk async for chunk in _execute_capability_stream("k12_tutor", body)
-    ]
+    chunks = [chunk async for chunk in _execute_capability_stream("k12_tutor", body)]
 
     assert _sse_payload(chunks[-1])["success"] is True
     assert captured["context"].config_overrides["course_id"] == "image-recognition"
@@ -74,8 +68,6 @@ async def test_plugin_k12_execution_rejects_teaching_fields_in_config() -> None:
         },
     )
 
-    chunks = [
-        chunk async for chunk in _execute_capability_stream("k12_tutor", body)
-    ]
+    chunks = [chunk async for chunk in _execute_capability_stream("k12_tutor", body)]
 
     assert "Extra inputs are not permitted" in _sse_payload(chunks[-1])["detail"]

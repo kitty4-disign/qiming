@@ -7,7 +7,9 @@ from deeptutor.api.routers import plugins_api
 
 
 @pytest.mark.asyncio
-async def test_direct_tool_execution_is_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_direct_tool_execution_is_disabled_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("DEEPTUTOR_ENABLE_DIRECT_TOOL_EXECUTION", raising=False)
 
     with pytest.raises(HTTPException) as exc_info:

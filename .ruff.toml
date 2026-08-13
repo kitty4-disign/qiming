@@ -1,0 +1,25 @@
+extend = "pyproject.toml"
+
+[format]
+exclude = [
+    "deeptutor/skills/builtin/*/SKILL.md",
+    "deeptutor/agents/visualize/utils.py",
+    "deeptutor/runtime/request_contracts.py",
+    "scripts/k12_demo_seed.py",
+    "deeptutor/education/recommender.py",
+    "deeptutor/agents/k12_tutor/guidance.py",
+    "deeptutor/agents/k12_tutor/capability.py",
+    "deeptutor/agents/chat/agent_loop.py",
+    "deeptutor/api/routers/education.py",
+    "deeptutor/api/routers/plugins_api.py",
+    "deeptutor/core/agentic/tool_dispatch.py",
+    "deeptutor/runtime/launcher.py",
+    "deeptutor/services/sandbox/runner/server.py",
+    "deeptutor/services/session/sqlite_store.py",
+    "deeptutor/services/session/turn_runtime.py",
+    "scripts/evaluate_k12_tutor.py",
+    "tests/agents/chat/test_k12_turn_boundary.py",
+    "tests/api/test_unified_ws_turn_runtime.py",
+    "tests/services/session/test_regenerate.py",
+    "tests/services/session/test_sqlite_store.py",
+]

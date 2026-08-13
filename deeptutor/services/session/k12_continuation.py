@@ -23,9 +23,7 @@ def flatten_k12_reply(
     """Flatten structured ask-user answers into the next turn's user message."""
     if answers:
         parts = [
-            str(entry.get("text") or "").strip()
-            for entry in answers
-            if isinstance(entry, dict)
+            str(entry.get("text") or "").strip() for entry in answers if isinstance(entry, dict)
         ]
         parts = [part for part in parts if part]
         if parts:

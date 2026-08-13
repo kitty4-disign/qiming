@@ -58,7 +58,7 @@ def test_runner_http_auth_fails_closed_and_accepts_matching_bearer(
 @pytest.mark.asyncio
 async def test_restricted_subprocess_does_not_accept_path_override() -> None:
     backend = RestrictedSubprocessBackend()
-    command = f'"{sys.executable}" -c "import os; print(os.environ.get(\'PATH\', \'\'))"'
+    command = f"\"{sys.executable}\" -c \"import os; print(os.environ.get('PATH', ''))\""
 
     result = await backend.exec(
         ExecRequest(command=command, env={"PATH": "ATTACKER_CONTROLLED_PATH"})

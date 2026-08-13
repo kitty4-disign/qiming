@@ -14,9 +14,25 @@ from deeptutor.learning.storage import LearningStore
 
 def _default_knowledge_type(name: str) -> KnowledgeType:
     lowered = name.lower()
-    if any(token in name for token in ("安全", "伦理", "偏差", "局限", "safety", "ethics", "bias", "limit")):
+    if any(
+        token in name
+        for token in ("安全", "伦理", "偏差", "局限", "safety", "ethics", "bias", "limit")
+    ):
         return KnowledgeType.CONCEPT
-    if any(token in name for token in ("实现", "编程", "代码", "实验", "提取", "分类", "coding", "implement", "extract")):
+    if any(
+        token in name
+        for token in (
+            "实现",
+            "编程",
+            "代码",
+            "实验",
+            "提取",
+            "分类",
+            "coding",
+            "implement",
+            "extract",
+        )
+    ):
         return KnowledgeType.PROCEDURE
     if any(token in lowered for token in ("python", "array", "数组")):
         return KnowledgeType.PROCEDURE
