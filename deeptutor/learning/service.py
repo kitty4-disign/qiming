@@ -39,40 +39,38 @@ class LearningService:
         self.replace_modules(progress, modules)
 
     def replace_modules(self, progress: LearningProgress, modules: list[LearningModule]) -> None:
-        """Replace all modules and clean stale KP state."""
-        new_kp_ids = {kp.id for m in modules for kp in m.knowledge_points}
+        """Replace all modules and reset state derived from their knowledge points.
 
-        # Clean stale KP state
-        for key in list(progress.mastery_levels.keys()):
-            if key not in new_kp_ids:
-                del progress.mastery_levels[key]
-        for key in list(progress.knowledge_types.keys()):
-            if key not in new_kp_ids:
-                del progress.knowledge_types[key]
-        for key in list(progress.repetition_states.keys()):
-            if key not in new_kp_ids:
-                del progress.repetition_states[key]
-        progress.error_records = [
-            r for r in progress.error_records if r.knowledge_point_id in new_kp_ids
-        ]
-        progress.feynman_retries = {
-            k: v for k, v in progress.feynman_retries.items() if k in new_kp_ids
-        }
-        progress.feynman_explanations = {
-            k: v for k, v in progress.feynman_explanations.items() if k in new_kp_ids
-        }
-        progress.review_queue = [
-            t for t in progress.review_queue if t.knowledge_point_id in new_kp_ids
-        ]
-        # Clear global stage failure records — different modules should not share failure counts
+        Mastery-path knowledge-point ids are currently positional. Reusing an id
+        after a curriculum rebuild therefore does *not* prove that it represents
+        the same concept. Keeping historical mastery/quiz state across a replace
+        can silently attach one concept's evidence to another, so replace
+        semantics deliberately start the KP-derived state from a clean slate.
+        """
+        progress.modules = list(modules)
+
+        progress.mastery_levels = {}
+        progress.qualitative_mastery = {}
+        progress.knowledge_types = {}
+        progress.quiz_attempts = []
+        progress.error_records = []
+        progress.repetition_states = {}
+        progress.review_queue = []
+        progress.pending_question = None
+        progress.feynman_retries = {}
+        progress.feynman_explanations = {}
         progress.stage_failure_counts = {}
         progress.stage_failure_notes = {}
 
-        # Set new modules
-        progress.modules = list(modules)
         for mod in modules:
             for kp in mod.knowledge_points:
                 progress.knowledge_types[kp.id] = kp.type
+
+        valid_module_ids = {m.id for m in modules}
+        if progress.current_module_id not in valid_module_ids:
+            progress.current_module_id = modules[0].id if modules else ""
+            progress.current_kp_index = 0
+        progress.updated_at = time.time()
 
     def advance_stage(self, progress: LearningProgress, next_stage: LearningStage) -> None:
         progress.current_stage = next_stage
@@ -174,10 +172,11 @@ class LearningService:
         """Grade one answer and fold it through the full post-answer pipeline.
 
         record attempt -> recompute mastery -> advance the spaced-repetition
-        state -> rebuild the review queue -> persist. This is the single source
-        of truth for what happens when a student answers, shared by every
-        interactive stage. Grading is fail-closed: with no stored expected
-        answer the attempt is recorded wrong, never right.
+        state -> rebuild the review queue -> clear the matching pending question
+        -> persist. This is the single source of truth for what happens when a
+        student answers, shared by every interactive stage. Grading is
+        fail-closed: with no stored expected answer the attempt is recorded
+        wrong, never right.
         """
         is_correct = bool(expected_answer) and grade_answer(
             user_answer, expected_answer, question_type
@@ -206,19 +205,43 @@ class LearningService:
                 progress.repetition_states[knowledge_point_id] = state
                 scheduler.schedule_next(state, kp_type, is_correct)
                 progress.review_queue = scheduler.build_review_queue(progress)
+
+        pending = progress.pending_question
+        if pending is not None and pending.question_id == question_id:
+            # Clear in the *same* persisted write as the attempt. This removes
+            # the crash window where an attempt was saved but the pending slot
+            # survived and could be graded a second time after restart.
+            progress.pending_question = None
+            progress.updated_at = time.time()
+
         self.save(progress)
         return is_correct
 
     # ── Loop-driven tutoring helpers ─────────────────────────────────────
 
     def set_pending_question(self, progress: LearningProgress, pending: PendingQuestion) -> None:
-        """Store the question the tutor just posed so its expected answer can
-        be graded deterministically on a later turn (never via the model)."""
+        """Store the one outstanding question used for deterministic grading.
+
+        A second distinct question is rejected until the current pending one is
+        graded or explicitly cleared. Silently overwriting the slot loses the
+        first question's expected answer and makes its learner response
+        impossible to score correctly.
+        """
+        existing = progress.pending_question
+        if existing is not None and existing.question_id != pending.question_id:
+            raise ValueError(
+                "A mastery question is already pending; grade or clear it before posing another."
+            )
         progress.pending_question = pending
         progress.updated_at = time.time()
         self.save(progress)
 
     def clear_pending_question(self, progress: LearningProgress) -> None:
+        # Idempotent: grade_and_record already clears a matching pending item
+        # atomically with the attempt. Avoid a redundant second write/version
+        # bump when legacy callers still invoke this helper afterwards.
+        if progress.pending_question is None:
+            return
         progress.pending_question = None
         progress.updated_at = time.time()
         self.save(progress)
