@@ -15,9 +15,7 @@ def test_retrieval_metrics_detect_traceability_and_leakage():
                 "expected_kb": "kb-a",
                 "observed_kb": "kb-a",
                 "expected_sources": ["a.md"],
-                "observed_sources": [
-                    {"source": "C:\\kb\\a.md", "chunk_id": "chunk-1"}
-                ],
+                "observed_sources": [{"source": "C:\\kb\\a.md", "chunk_id": "chunk-1"}],
             },
             {
                 "question_id": "q2",

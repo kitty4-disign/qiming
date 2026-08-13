@@ -19,7 +19,9 @@ def test_expected_targets_map_to_existing_assets():
 
 
 @pytest.mark.asyncio
-async def test_prepare_only_copies_all_four_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+async def test_prepare_only_copies_all_four_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     root = tmp_path / "project"
     assets = root / "assets" / "k12-knowledge"
     assets.mkdir(parents=True)

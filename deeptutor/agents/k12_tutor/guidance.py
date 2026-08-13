@@ -1,6 +1,5 @@
 from deeptutor.education.models import EducationStage, StudentProfile
 
-
 STAGE_POLICIES = {
     EducationStage.PRIMARY_LOWER: {
         "zh": (

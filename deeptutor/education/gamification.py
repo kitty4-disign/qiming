@@ -9,8 +9,8 @@ no gacha, no infinite reward animation.
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
+import time
 
 from deeptutor.education.activity_models import LearningEvent
 from deeptutor.learning.models import LearningProgress
@@ -31,6 +31,7 @@ _STREAK_GRACE_HOURS = 36  # allow overnight gap without resetting streak
 
 # Mastery gate: a KP counts as "mastered" at or above this level.
 _MASTERY_THRESHOLD = 0.7
+
 
 # Badges are defined by deterministic predicates, not random rewards.
 @dataclass(frozen=True)
@@ -57,32 +58,45 @@ class GamificationSummary:
 
 # ── Badge definitions ──────────────────────────────────────────────────────
 
-def _badge_first_steps(progress: LearningProgress, events: list[LearningEvent], derived: GamificationSummary) -> bool:
+
+def _badge_first_steps(
+    progress: LearningProgress, events: list[LearningEvent], derived: GamificationSummary
+) -> bool:
     """Complete at least one learning activity."""
     return any(e.event_type == "completed" for e in events)
 
 
-def _badge_quiz_explorer(progress: LearningProgress, events: list[LearningEvent], derived: GamificationSummary) -> bool:
+def _badge_quiz_explorer(
+    progress: LearningProgress, events: list[LearningEvent], derived: GamificationSummary
+) -> bool:
     """Complete at least 3 quiz activities."""
     return sum(1 for e in events if e.event_type == "completed" and e.activity == "quiz") >= 3
 
 
-def _badge_first_mastery(progress: LearningProgress, events: list[LearningEvent], derived: GamificationSummary) -> bool:
+def _badge_first_mastery(
+    progress: LearningProgress, events: list[LearningEvent], derived: GamificationSummary
+) -> bool:
     """Reach mastery gate on at least one knowledge point."""
     return any(level >= _MASTERY_THRESHOLD for level in progress.mastery_levels.values())
 
 
-def _badge_streak_3(progress: LearningProgress, events: list[LearningEvent], derived: GamificationSummary) -> bool:
+def _badge_streak_3(
+    progress: LearningProgress, events: list[LearningEvent], derived: GamificationSummary
+) -> bool:
     """Maintain a 3-day learning streak."""
     return derived.current_streak_days >= 3
 
 
-def _badge_half_mastered(progress: LearningProgress, events: list[LearningEvent], derived: GamificationSummary) -> bool:
+def _badge_half_mastered(
+    progress: LearningProgress, events: list[LearningEvent], derived: GamificationSummary
+) -> bool:
     """Master at least half of all knowledge points in the course."""
     kp_ids = [kp.id for m in progress.modules for kp in m.knowledge_points]
     if not kp_ids:
         return False
-    mastered = sum(1 for kp_id in kp_ids if progress.mastery_levels.get(kp_id, 0.0) >= _MASTERY_THRESHOLD)
+    mastered = sum(
+        1 for kp_id in kp_ids if progress.mastery_levels.get(kp_id, 0.0) >= _MASTERY_THRESHOLD
+    )
     return mastered >= len(kp_ids) / 2
 
 
@@ -96,6 +110,7 @@ _BADGES: list[BadgeSpec] = [
 
 
 # ── XP calculation ──────────────────────────────────────────────────────────
+
 
 def _xp_from_events(events: list[LearningEvent]) -> int:
     """Compute total XP from learning events.
@@ -141,6 +156,7 @@ def _level_from_xp(xp: int) -> tuple[int, int, int]:
 
 # ── Streak calculation ──────────────────────────────────────────────────────
 
+
 def _streak_from_events(events: list[LearningEvent], now: float) -> int:
     """Current streak in days, derived from completed events.
 
@@ -175,6 +191,7 @@ def _streak_from_events(events: list[LearningEvent], now: float) -> int:
 
 
 # ── Main entry point ────────────────────────────────────────────────────────
+
 
 def compute_gamification(
     progress: LearningProgress,
@@ -217,18 +234,46 @@ def compute_gamification(
             if spec.code == "first_steps":
                 next_badge = {"badge": spec.code, "remaining": 1, "name_zh": spec.name_zh}
             elif spec.code == "quiz_explorer":
-                completed_quizzes = sum(1 for e in events if e.event_type == "completed" and e.activity == "quiz")
-                next_badge = {"badge": spec.code, "current": completed_quizzes, "target": 3, "name_zh": spec.name_zh}
+                completed_quizzes = sum(
+                    1 for e in events if e.event_type == "completed" and e.activity == "quiz"
+                )
+                next_badge = {
+                    "badge": spec.code,
+                    "current": completed_quizzes,
+                    "target": 3,
+                    "name_zh": spec.name_zh,
+                }
             elif spec.code == "first_mastery":
-                mastered = sum(1 for v in progress.mastery_levels.values() if v >= _MASTERY_THRESHOLD)
-                next_badge = {"badge": spec.code, "current": mastered, "target": 1, "name_zh": spec.name_zh}
+                mastered = sum(
+                    1 for v in progress.mastery_levels.values() if v >= _MASTERY_THRESHOLD
+                )
+                next_badge = {
+                    "badge": spec.code,
+                    "current": mastered,
+                    "target": 1,
+                    "name_zh": spec.name_zh,
+                }
             elif spec.code == "streak_3":
-                next_badge = {"badge": spec.code, "current": streak, "target": 3, "name_zh": spec.name_zh}
+                next_badge = {
+                    "badge": spec.code,
+                    "current": streak,
+                    "target": 3,
+                    "name_zh": spec.name_zh,
+                }
             elif spec.code == "half_mastered":
                 kp_ids = [kp.id for m in progress.modules for kp in m.knowledge_points]
-                mastered = sum(1 for kp_id in kp_ids if progress.mastery_levels.get(kp_id, 0.0) >= _MASTERY_THRESHOLD)
+                mastered = sum(
+                    1
+                    for kp_id in kp_ids
+                    if progress.mastery_levels.get(kp_id, 0.0) >= _MASTERY_THRESHOLD
+                )
                 target = max(1, len(kp_ids) // 2)
-                next_badge = {"badge": spec.code, "current": mastered, "target": target, "name_zh": spec.name_zh}
+                next_badge = {
+                    "badge": spec.code,
+                    "current": mastered,
+                    "target": target,
+                    "name_zh": spec.name_zh,
+                }
             break
 
     return GamificationSummary(

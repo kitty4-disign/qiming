@@ -2,10 +2,16 @@ import pytest
 
 from deeptutor.education.models import StudentProfile
 from deeptutor.education.teaching_policy import decide_teaching
-from deeptutor.learning.models import KnowledgePoint, KnowledgeType, LearningModule, LearningProgress
+from deeptutor.learning.models import (
+    KnowledgePoint,
+    KnowledgeType,
+    LearningModule,
+    LearningProgress,
+)
 
 
 def progress_for(kp_type: KnowledgeType = KnowledgeType.PROCEDURE) -> LearningProgress:
+    """Build the minimal learning progress used by teaching-policy tests."""
     kp = KnowledgePoint(id="kp", name="训练集与测试集", type=kp_type, module_id="m")
     return LearningProgress(
         book_id="path",

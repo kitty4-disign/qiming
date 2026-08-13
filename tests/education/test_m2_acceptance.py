@@ -9,9 +9,9 @@ fake-mastery inflation caused by clicking "I understand" on an animation.
 
 from pathlib import Path
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 
 import deeptutor.api.routers.education as education_module
 from deeptutor.education.mastery_seed import ensure_course_mastery_path

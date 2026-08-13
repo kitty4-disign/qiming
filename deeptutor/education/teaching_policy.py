@@ -50,7 +50,9 @@ def decide_teaching(
     """Choose pedagogy deterministically; mastery ordering remains authoritative."""
     step = next_objective(progress)
     default, difficulty, count, hint, use_code, use_visualization = _STAGE_DEFAULTS[profile.stage]
-    allowed = [_ACTIVITY_BY_MODALITY[item] for item in allowed_modalities if item in _ACTIVITY_BY_MODALITY]
+    allowed = [
+        _ACTIVITY_BY_MODALITY[item] for item in allowed_modalities if item in _ACTIVITY_BY_MODALITY
+    ]
     if "lesson" not in allowed:
         allowed.insert(0, "lesson")
 
@@ -72,7 +74,9 @@ def decide_teaching(
                 activity = preferred
                 reasons.append(f"PREFERS_{modality.upper()}")
                 break
-    if activity not in allowed or (profile.stage == EducationStage.PRIMARY_LOWER and activity == "coding"):
+    if activity not in allowed or (
+        profile.stage == EducationStage.PRIMARY_LOWER and activity == "coding"
+    ):
         activity = "lesson"
     if step.status == "learning":
         reasons.append("LOW_MASTERY")

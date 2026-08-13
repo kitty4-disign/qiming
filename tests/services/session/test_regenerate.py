@@ -469,7 +469,13 @@ async def test_k12_session_restores_config_and_education_context(
         }
     )
     preferences = (await store.get_session(session["id"]))["preferences"]
-    assert preferences["capability_config"] == config
+    stored_config = preferences["capability_config"]
+    for key, value in config.items():
+        assert stored_config[key] == value
+    assert stored_config["quiz_run_id"] == ""
+    assert stored_config["quiz_question_count"] == 3
+    assert stored_config["quiz_answered_count"] == 0
+    assert stored_config["quiz_last_answered_turn_id"] == ""
     assert preferences["education_context"] == education_context
     await runtime.cancel_turn(first_turn["id"])
 
@@ -483,7 +489,9 @@ async def test_k12_session_restores_config_and_education_context(
         }
     )
     execution = runtime._executions[second_turn["id"]]
-    assert execution.payload["config"] == config
+    restored_config = execution.payload["config"]
+    for key, value in stored_config.items():
+        assert restored_config[key] == value
     assert execution.payload["education_context"] == education_context
     await runtime.cancel_turn(second_turn["id"])
 
@@ -502,11 +510,12 @@ async def test_k12_session_restores_config_and_education_context(
         }
     )
     execution = runtime._executions[third_turn["id"]]
-    assert execution.payload["config"] == {
-        **config,
-        "activity_mode": "quiz",
-        "subagent_consult_budget": 2,
-    }
+    switched_config = execution.payload["config"]
+    assert switched_config["course_id"] == config["course_id"]
+    assert switched_config["mastery_path_id"] == config["mastery_path_id"]
+    assert switched_config["activity_mode"] == "quiz"
+    assert switched_config["subagent_consult_budget"] == 2
+    assert switched_config["quiz_question_count"] == 3
     assert execution.payload["education_context"] is None
     preferences = (await store.get_session(session["id"]))["preferences"]
     assert preferences["education_context"] is None

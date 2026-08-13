@@ -10,9 +10,9 @@ from deeptutor.education.catalog import (
 from deeptutor.education.code_runner import CodeRunError, run_student_code
 from deeptutor.education.coding_models import CodeRunRequest
 from deeptutor.education.coding_tasks import get_coding_task, list_coding_tasks
-from deeptutor.education.gamification import compute_gamification
 from deeptutor.education.episode_models import CompleteEpisodeRequest, CreateEpisodeRequest
 from deeptutor.education.episode_service import EpisodeConflictError, LearningEpisodeService
+from deeptutor.education.gamification import compute_gamification
 from deeptutor.education.mastery_seed import ensure_course_mastery_path
 from deeptutor.education.models import StudentProfile
 from deeptutor.education.path_ids import build_mastery_path_id

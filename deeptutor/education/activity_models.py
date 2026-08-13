@@ -5,9 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-EducationActivity = Literal[
-    "lesson", "quiz", "animation", "storybook", "coding", "resource"
-]
+EducationActivity = Literal["lesson", "quiz", "animation", "storybook", "coding", "resource"]
 
 ActivityEventType = Literal["launched", "completed", "abandoned"]
 

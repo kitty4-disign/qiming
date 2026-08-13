@@ -12,6 +12,11 @@
 #   1. Runtime settings are stored in ./data/user/settings (created automatically)
 #   2. Configure model providers from the web Settings page or model_catalog.json
 #   3. Use scripts/docker_compose.py so port mappings are rendered from system.json
+#   4. Set DEEPTUTOR_SANDBOX_RUNNER_TOKEN to a strong random value if exec/code tools are needed.
+#
+# Safe exposure defaults:
+#   Published host ports bind to 127.0.0.1. To expose through a trusted reverse
+#   proxy/network, explicitly set DEEPTUTOR_DOCKER_BIND_HOST and enable auth.
 #
 # Local LLM (LM Studio / Ollama / vLLM):
 #   Use "host.docker.internal" instead of "localhost" in provider base_url fields.
@@ -29,13 +34,8 @@ services:
     container_name: pocketbase
     restart: unless-stopped
     ports:
-      - "${DEEPTUTOR_DOCKER_POCKETBASE_PORT:-8090}:8090"
+      - "${DEEPTUTOR_DOCKER_BIND_HOST:-127.0.0.1}:${DEEPTUTOR_DOCKER_POCKETBASE_PORT:-8090}:8090"
     volumes:
-      # The upstream pocketbase image's entrypoint uses absolute paths
-      # (no /pb/ prefix): --dir=/pb_data --publicDir=/pb_public
-      # --hooksDir=/pb_hooks. The previous example mounted at /pb/pb_data
-      # and crashed on first start with "mkdir /pb_data: read-only file
-      # system".
       - ./data/pocketbase:/pb_data
       - ./data/pocketbase/public:/pb_public
       - ./data/pocketbase/hooks:/pb_hooks
@@ -59,27 +59,22 @@ services:
     container_name: deeptutor
     restart: unless-stopped
     ports:
-      - "${DEEPTUTOR_DOCKER_BACKEND_PORT:-8001}:${DEEPTUTOR_DOCKER_BACKEND_PORT:-8001}"
-      - "${DEEPTUTOR_DOCKER_FRONTEND_PORT:-3782}:${DEEPTUTOR_DOCKER_FRONTEND_PORT:-3782}"
+      - "${DEEPTUTOR_DOCKER_BIND_HOST:-127.0.0.1}:${DEEPTUTOR_DOCKER_BACKEND_PORT:-8001}:${DEEPTUTOR_DOCKER_BACKEND_PORT:-8001}"
+      - "${DEEPTUTOR_DOCKER_BIND_HOST:-127.0.0.1}:${DEEPTUTOR_DOCKER_FRONTEND_PORT:-3782}:${DEEPTUTOR_DOCKER_FRONTEND_PORT:-3782}"
 
     volumes:
       # Everything DeepTutor persists lives under ./data — one tree to mount
       # and back up: admin workspace + runtime settings (data/user), per-user
       # workspaces (data/users), partners (data/partners), accounts/grants/
       # audit (data/system), knowledge bases, memory.
-      # The sandbox-runner deliberately gets only the *workspace* subtrees of
-      # this volume (the mount contract below) — never data/system or
-      # data/user/settings, which hold auth state and provider API keys.
       - ./data:/app/data
 
     environment:
       # Route untrusted shell exec to the runner sidecar (SYSTEM isolation).
-      # When this is set, the main app NEVER runs untrusted code in its own
-      # process — see deeptutor/services/sandbox/config.py:build_backend().
-      # On bare-metal / macOS deployments where the runner is not started, leave
-      # this unset: the app degrades to bwrap (Linux, if installed) or, only when
-      # DEEPTUTOR_SANDBOX_ALLOW_SUBPROCESS=1, a restricted subprocess.
       - DEEPTUTOR_SANDBOX_RUNNER_URL=http://sandbox-runner:8900
+      # /exec fails closed when this is empty. Use the same strong secret on
+      # both containers; it is never exposed as a published port.
+      - DEEPTUTOR_SANDBOX_RUNNER_TOKEN=${DEEPTUTOR_SANDBOX_RUNNER_TOKEN:-}
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${DEEPTUTOR_DOCKER_BACKEND_PORT:-8001}/"]
@@ -100,14 +95,6 @@ services:
   # ============================================
   # Sandbox Runner Sidecar
   # ============================================
-  # Executes untrusted shell commands in an isolated, least-privileged
-  # container so the main app never has to. Rationale for the sidecar shape:
-  #   * the main `deeptutor` container keeps minimal privileges and does NOT
-  #     mount the docker socket or run untrusted code in its own process;
-  #   * a sandbox escape here lands in a stripped, unprivileged container with
-  #     no app secrets, not in the main app.
-  # Not exposed to the host: it is reachable only on the internal
-  # deeptutor-network at http://sandbox-runner:8900.
   sandbox-runner:
     build:
       context: .
@@ -115,39 +102,28 @@ services:
     container_name: deeptutor-sandbox-runner
     restart: unless-stopped
 
-    # Share the task workspaces at the SAME paths as the main app so the mount
-    # contract holds: a request with host_path == sandbox_path under
-    # /app/data/user/workspace (admin) or /app/data/users/<uid> (per-user)
-    # is already visible here, no per-command mounting needed.
-    # Scope note: every command in this container shares one filesystem view
-    # (per-command isolation is a roadmap item), so the mounts are kept as
-    # narrow as the exec feature allows — workspace subtrees only. Secrets
-    # (data/system, data/user/settings) never enter this container; the
-    # residual exposure is cross-user visibility *between user workspaces*,
-    # acceptable for the invite-only trust posture and enforced no further.
+    # The runner is not published to the host. Its /exec endpoint additionally
+    # requires the shared bearer token below. Cross-user workspace visibility
+    # remains a filesystem limitation of this single-runner deployment; product
+    # policy should keep non-admin exec explicitly granted rather than implicit.
     volumes:
       - ./data/user/workspace:/app/data/user/workspace
       - ./data/users:/app/data/users
 
-    # No `ports:` — intentionally not published to the host.
+    environment:
+      - DEEPTUTOR_SANDBOX_RUNNER_TOKEN=${DEEPTUTOR_SANDBOX_RUNNER_TOKEN:-}
 
-    # ----- Security hardening -----
+    # No `ports:` — intentionally not published to the host.
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    # Read-only root filesystem: the runner only needs to read its own code and
-    # write under the shared volume (and scratch space). Give it tmpfs for the
-    # paths shell tooling expects to be writable (/tmp, $HOME). If a workload
-    # needs more writable scratch, relax read_only rather than widening tmpfs.
     read_only: true
     tmpfs:
       - /tmp
       - /home/runner
     pids_limit: 256
     mem_limit: 1g
-    # cgroup-enforced RSS cap is the authoritative memory backstop; the
-    # per-command RLIMIT_AS in server.py is a cheaper secondary guard.
 
     healthcheck:
       test: ["CMD", "python", "-c",

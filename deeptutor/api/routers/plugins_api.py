@@ -3,13 +3,16 @@ Plugins API Router
 ==================
 
 Lists registered tools, capabilities, and playground plugins.
-Provides direct tool execution for the Playground tester.
+Direct tool execution is disabled by default because it bypasses the normal
+agent/runtime policy pipeline. A trusted local developer may opt in with
+``DEEPTUTOR_ENABLE_DIRECT_TOOL_EXECUTION=1`` for Playground diagnostics.
 """
 
 import asyncio
 import contextlib
 import json
 import logging
+import os
 import re
 import time
 from typing import Any, AsyncGenerator
@@ -33,6 +36,34 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 ANSI_ESCAPE_RE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+_DIRECT_TOOL_EXECUTION_ENV = "DEEPTUTOR_ENABLE_DIRECT_TOOL_EXECUTION"
+
+
+def _direct_tool_execution_enabled() -> bool:
+    """Return whether the unsafe Playground-only direct tool path is enabled.
+
+    This path intentionally does not go through TurnRuntimeManager, tool kwarg
+    augmentation, exec policy checks, or partner whitelists. It must therefore
+    be an explicit deployer opt-in rather than an internet-facing default.
+    """
+    return os.getenv(_DIRECT_TOOL_EXECUTION_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _require_direct_tool_execution_enabled() -> None:
+    if not _direct_tool_execution_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Direct tool execution is disabled. Use a capability/turn endpoint, "
+                f"or set {_DIRECT_TOOL_EXECUTION_ENV}=1 only in a trusted local "
+                "development environment."
+            ),
+        )
 
 
 def _discover_plugins() -> list[Any]:
@@ -116,7 +147,8 @@ async def list_plugins():
 
 @router.post("/tools/{tool_name}/execute")
 async def execute_tool(tool_name: str, body: ToolExecuteRequest):
-    """Execute a single tool with explicit parameters (for Playground testing)."""
+    """Execute a tool only when a trusted developer explicitly opts in."""
+    _require_direct_tool_execution_enabled()
     registry = get_tool_registry()
     tool = registry.get(tool_name)
     if not tool:
@@ -130,9 +162,9 @@ async def execute_tool(tool_name: str, body: ToolExecuteRequest):
             "sources": result.sources,
             "metadata": result.metadata,
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Tool execution failed: %s", tool_name)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Tool execution failed") from None
 
 
 def _sse(event: str, payload: dict[str, Any]) -> str:
@@ -208,7 +240,8 @@ class _QueueTextStream:
 
 
 async def _execute_stream(tool_name: str, params: dict[str, Any]) -> AsyncGenerator[str, None]:
-    """Run a tool while streaming structured process logs and the final result."""
+    """Run a direct tool with logs after the explicit development opt-in."""
+    _require_direct_tool_execution_enabled()
     registry = get_tool_registry()
     tool = registry.get(tool_name)
     if not tool:
@@ -248,8 +281,9 @@ async def _execute_stream(tool_name: str, params: dict[str, Any]) -> AsyncGenera
                 "sources": result.sources,
                 "metadata": result.metadata,
             }
-        except Exception as exc:
-            error_holder["detail"] = str(exc)
+        except Exception:
+            logger.exception("Streaming tool execution failed: %s", tool_name)
+            error_holder["detail"] = "Tool execution failed"
         finally:
             stdout_stream.flush()
             stderr_stream.flush()
@@ -283,7 +317,8 @@ async def _execute_stream(tool_name: str, params: dict[str, Any]) -> AsyncGenera
 
 @router.post("/tools/{tool_name}/execute-stream")
 async def execute_tool_stream(tool_name: str, body: ToolExecuteRequest):
-    """Execute a tool and stream process logs + result as SSE."""
+    """Execute a direct tool stream only after explicit development opt-in."""
+    _require_direct_tool_execution_enabled()
     return StreamingResponse(
         _execute_stream(tool_name, body.params),
         media_type="text/event-stream",

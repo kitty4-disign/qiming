@@ -88,20 +88,26 @@ async def dispatch_tool_calls(
     unknown_error_message_factory: UnknownErrorMessageFactory | None = None,
     trace_id_prefix: str = "iter",
 ) -> DispatchOutcome:
-    """Execute tool calls in parallel and assemble a :class:`DispatchOutcome`."""
+    """Execute tool calls in parallel and assemble a :class:`DispatchOutcome`.
+
+    The LLM protocol requires every assistant ``tool_call`` id to receive a
+    matching ``role=tool`` message. We therefore keep the full call list even
+    when the execution budget is capped: calls beyond the parallel budget are
+    not executed, but receive deterministic synthetic results so the next LLM
+    request remains protocol-valid.
+    """
     registry = registry or get_tool_registry()
 
-    if len(tool_calls) > MAX_PARALLEL_TOOL_CALLS:
-        if too_many_tool_calls_message:
-            await stream.progress(
-                too_many_tool_calls_message,
-                source=source,
-                stage=stage,
-                metadata={"trace_kind": "warning"},
-            )
-        tool_calls = tool_calls[:MAX_PARALLEL_TOOL_CALLS]
-
     prepared = _prepare_tool_args(tool_calls, context, kwarg_augmenter)
+    overflow_indices = set(range(MAX_PARALLEL_TOOL_CALLS, len(prepared)))
+    if overflow_indices and too_many_tool_calls_message:
+        await stream.progress(
+            too_many_tool_calls_message,
+            source=source,
+            stage=stage,
+            metadata={"trace_kind": "warning"},
+        )
+
     # Collapse duplicates within this parallel batch. Models occasionally
     # emit repeated tool_calls in one assistant message. For most tools,
     # "duplicate" means same tool + same JSON-normalised args. For
@@ -113,9 +119,13 @@ async def dispatch_tool_calls(
     # to a stub role=tool result so OpenAI's tool-call/tool-message pairing
     # stays intact for the next API call. Duplicate ``ask_user`` calls are
     # also hidden from the user-facing trace stream to avoid duplicate Ask
-    # Me rows/cards during the live turn.
+    # Me rows/cards during the live turn. Overflow calls are hidden too:
+    # they exist only to preserve the protocol pairing and teach the model
+    # to retry with a smaller batch.
     duplicate_of = _detect_duplicate_calls(prepared)
-    suppress_ui_indices = {idx for idx in duplicate_of if prepared[idx][1] == "ask_user"}
+    suppress_ui_indices = overflow_indices | {
+        idx for idx in duplicate_of if prepared[idx][1] == "ask_user"
+    }
     per_tool_trace_meta = _build_per_tool_trace_meta(
         prepared,
         context=context,
@@ -145,6 +155,8 @@ async def dispatch_tool_calls(
         )
 
     async def _run_one(tool_index: int) -> dict[str, Any]:
+        if tool_index in overflow_indices:
+            return _overflow_stub_result(tool_name=prepared[tool_index][1])
         primary_idx = duplicate_of.get(tool_index)
         if primary_idx is not None:
             primary_call_id = prepared[primary_idx][0]
@@ -221,6 +233,22 @@ def _detect_duplicate_calls(
         else:
             duplicate_of[idx] = primary
     return duplicate_of
+
+
+def _overflow_stub_result(*, tool_name: str) -> dict[str, Any]:
+    """Return a protocol-preserving result for a call over the execution cap."""
+    return {
+        "result_text": (
+            "(parallel tool_call skipped because this assistant message exceeded "
+            f"the {MAX_PARALLEL_TOOL_CALLS}-call execution limit. Retry {tool_name!r} "
+            "in a later assistant message with a smaller tool-call batch.)"
+        ),
+        "success": False,
+        "sources": [],
+        "metadata": {"error_code": "parallel_tool_limit"},
+        "terminate_turn": False,
+        "pause_for_user": None,
+    }
 
 
 def _duplicate_stub_result(
@@ -400,28 +428,29 @@ async def execute_tool_call(
         }
     except Exception as exc:
         logger.error("Tool %s failed", tool_name, exc_info=True)
+        unknown_msg = (
+            unknown_error_message_factory(tool_name)
+            if unknown_error_message_factory is not None
+            else f"Error executing {tool_name}."
+        )
+        error_type = type(exc).__name__
         if retrieve_meta is not None:
             await stream.error(
-                f"Retrieve failed: {exc}",
+                unknown_msg,
                 source=source,
                 stage=stage,
                 metadata=derive_trace_metadata(
                     retrieve_meta,
                     trace_kind="call_status",
                     call_state="error",
-                    error=str(exc),
+                    error_type=error_type,
                 ),
             )
-        unknown_msg = (
-            unknown_error_message_factory(tool_name)
-            if unknown_error_message_factory is not None
-            else f"Error executing {tool_name}: {exc}"
-        )
         return {
             "result_text": unknown_msg,
             "success": False,
             "sources": [],
-            "metadata": {"error": str(exc)},
+            "metadata": {"error_type": error_type},
             "terminate_turn": False,
             "pause_for_user": None,
         }

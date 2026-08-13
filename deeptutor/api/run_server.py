@@ -40,6 +40,10 @@ def main() -> None:
     set_mode(RunMode.SERVER)
     configure_logging()
     backend_port = get_backend_port(project_root)
+    # Safe-by-default local binding. Exposing the API beyond loopback is an
+    # explicit deployer choice and should be paired with authentication and a
+    # trusted reverse proxy/network policy.
+    api_host = os.getenv("DEEPTUTOR_API_HOST", "127.0.0.1").strip() or "127.0.0.1"
 
     # Configure reload_excludes to skip directories that shouldn't trigger reloads
     # Use absolute paths to ensure they're properly resolved
@@ -60,7 +64,7 @@ def main() -> None:
     # Start uvicorn server with reload enabled
     uvicorn.run(
         "deeptutor.api.main:app",
-        host="0.0.0.0",
+        host=api_host,
         port=backend_port,
         reload=True,
         reload_excludes=reload_excludes,

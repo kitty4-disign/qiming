@@ -14,7 +14,7 @@ from deeptutor.agents.research.request_config import (
     DeepResearchRequestConfig,
     validate_research_request_config,
 )
-from deeptutor.education.models import EducationStage, STAGE_GRADE_RANGE
+from deeptutor.education.models import STAGE_GRADE_RANGE, EducationStage
 
 _RUNTIME_ONLY_KEYS = {
     "_persist_user_message",

@@ -24,8 +24,6 @@ Supported client message ``type`` values:
 - ``check_active_turn`` — report whether the session has a live running turn;
   replies with ``active_turn_info`` (``turn_id``/``status``), marking stale
   persisted "running" rows as cancelled when no live execution exists.
-- ``user_input`` — deliver a learner answer to the turn's StreamBus
-  (resolves a pending ``wait_for_input``, e.g. an ``ask_user`` pause).
 """
 
 from __future__ import annotations
@@ -39,6 +37,30 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def _current_user_has_session(session_id: str) -> bool:
+    """Check session ownership against the store selected by current-user context.
+
+    SQLite stores are keyed by the current user's database path; PocketBase
+    stores apply their own current-user scope. Looking the id up through this
+    factory prevents a websocket connected as one user from steering a turn in
+    another user's store merely by guessing or learning its identifier.
+    """
+    if not session_id:
+        return False
+    from deeptutor.services.session import get_session_store
+
+    return await get_session_store().get_session(session_id) is not None
+
+
+async def _current_user_has_turn(turn_id: str) -> bool:
+    """Check turn ownership through the current user's scoped session store."""
+    if not turn_id:
+        return False
+    from deeptutor.services.session import get_session_store
+
+    return await get_session_store().get_turn(turn_id) is not None
 
 
 @router.websocket("/ws")
@@ -66,6 +88,16 @@ async def unified_websocket(ws: WebSocket) -> None:
         except Exception:
             closed = True
 
+    async def reject_unowned(kind: str, object_id: str) -> None:
+        # Deliberately do not distinguish "does not exist" from "belongs to
+        # another user"; that would turn the ownership guard into an id oracle.
+        await safe_send(
+            {
+                "type": "error",
+                "content": f"{kind} is not available for the current user: {object_id}",
+            }
+        )
+
     async def stop_subscription(key: str) -> None:
         task = subscription_tasks.pop(key, None)
         if task is None:
@@ -76,8 +108,12 @@ async def unified_websocket(ws: WebSocket) -> None:
         except asyncio.CancelledError:
             pass
 
-    async def subscribe_turn(turn_id: str, after_seq: int = 0) -> None:
+    async def subscribe_turn(turn_id: str, after_seq: int = 0) -> bool:
         from deeptutor.services.session import get_turn_runtime_manager
+
+        if not await _current_user_has_turn(turn_id):
+            await reject_unowned("Turn", turn_id)
+            return False
 
         async def _forward() -> None:
             runtime = get_turn_runtime_manager()
@@ -86,9 +122,14 @@ async def unified_websocket(ws: WebSocket) -> None:
 
         await stop_subscription(turn_id)
         subscription_tasks[turn_id] = asyncio.create_task(_forward())
+        return True
 
-    async def subscribe_session(session_id: str, after_seq: int = 0) -> None:
+    async def subscribe_session(session_id: str, after_seq: int = 0) -> bool:
         from deeptutor.services.session import get_turn_runtime_manager
+
+        if not await _current_user_has_session(session_id):
+            await reject_unowned("Session", session_id)
+            return False
 
         async def _forward() -> None:
             runtime = get_turn_runtime_manager()
@@ -98,6 +139,7 @@ async def unified_websocket(ws: WebSocket) -> None:
         key = f"session:{session_id}"
         await stop_subscription(key)
         subscription_tasks[key] = asyncio.create_task(_forward())
+        return True
 
     try:
         while not closed:
@@ -162,6 +204,9 @@ async def unified_websocket(ws: WebSocket) -> None:
                 if not session_id:
                     await safe_send({"type": "error", "content": "Missing session_id."})
                     continue
+                if not await _current_user_has_session(session_id):
+                    await reject_unowned("Session", session_id)
+                    continue
                 from deeptutor.services.session import get_turn_runtime_manager
 
                 runtime = get_turn_runtime_manager()
@@ -201,6 +246,8 @@ async def unified_websocket(ws: WebSocket) -> None:
                 continue
 
             if msg_type == "unsubscribe":
+                # Subscriptions can only have been created after an ownership
+                # check on this websocket, so removing a local task is safe.
                 turn_id = str(msg.get("turn_id") or "").strip()
                 if turn_id:
                     await stop_subscription(turn_id)
@@ -214,6 +261,9 @@ async def unified_websocket(ws: WebSocket) -> None:
                 if not turn_id:
                     await safe_send({"type": "error", "content": "Missing turn_id."})
                     continue
+                if not await _current_user_has_turn(turn_id):
+                    await reject_unowned("Turn", turn_id)
+                    continue
                 from deeptutor.services.session import get_turn_runtime_manager
 
                 runtime = get_turn_runtime_manager()
@@ -226,6 +276,9 @@ async def unified_websocket(ws: WebSocket) -> None:
                 turn_id = str(msg.get("turn_id") or "").strip()
                 if not turn_id:
                     await safe_send({"type": "error", "content": "Missing turn_id."})
+                    continue
+                if not await _current_user_has_turn(turn_id):
+                    await reject_unowned("Turn", turn_id)
                     continue
                 # Accept either the legacy ``text`` (single free-form
                 # reply) or the v2 ``answers`` (list of {questionId, text}
@@ -268,6 +321,9 @@ async def unified_websocket(ws: WebSocket) -> None:
                 if not session_id:
                     await safe_send({"type": "error", "content": "Missing session_id."})
                     continue
+                if not await _current_user_has_session(session_id):
+                    await reject_unowned("Session", session_id)
+                    continue
                 from deeptutor.services.session import get_turn_runtime_manager
 
                 runtime = get_turn_runtime_manager()
@@ -298,29 +354,13 @@ async def unified_websocket(ws: WebSocket) -> None:
                 await subscribe_turn(turn["id"], after_seq=0)
                 continue
 
-            if msg_type == "user_input":
-                turn_id = str(msg.get("turn_id") or "").strip()
-                if not turn_id:
-                    await safe_send({"type": "error", "content": "Missing turn_id for user_input."})
-                    continue
-                from deeptutor.core.stream_bus import get_bus
-
-                bus = get_bus(turn_id)
-                if bus is None:
-                    await safe_send(
-                        {"type": "error", "content": f"No active bus for turn: {turn_id}"}
-                    )
-                    continue
-                bus.submit_input(str(msg.get("content") or ""))
-                continue
-
             await safe_send({"type": "error", "content": f"Unknown type: {msg_type}"})
 
     except WebSocketDisconnect:
         logger.debug("Client disconnected from /ws")
-    except Exception as exc:
-        logger.error("Unified WS error: %s", exc, exc_info=True)
-        await safe_send({"type": "error", "content": str(exc)})
+    except Exception:
+        logger.exception("Unified WS error")
+        await safe_send({"type": "error", "content": "WebSocket request failed."})
     finally:
         closed = True
         for key in list(subscription_tasks.keys()):
