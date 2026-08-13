@@ -48,6 +48,32 @@ def _appended_module() -> LearningModule:
     )
 
 
+class _ConcurrentCreateStore:
+    """Simulate another request winning the first-create CAS race."""
+
+    def __init__(self) -> None:
+        self._load_count = 0
+        self.winner = LearningProgress(book_id="path", version=1)
+
+    def load(self, book_id: str) -> LearningProgress | None:
+        assert book_id == "path"
+        self._load_count += 1
+        return None if self._load_count == 1 else self.winner
+
+    def save(self, progress: LearningProgress) -> None:
+        raise ConcurrentLearningUpdateError("simulated concurrent create")
+
+
+def test_get_or_create_rereads_winner_after_concurrent_first_create() -> None:
+    store = _ConcurrentCreateStore()
+    service = LearningService(store=store)  # type: ignore[arg-type]
+
+    progress = service.get_or_create("path")
+
+    assert progress is store.winner
+    assert progress.version == 1
+
+
 def test_replace_modules_clears_history_even_when_positional_kp_id_is_reused(
     tmp_path: Path,
 ) -> None:
