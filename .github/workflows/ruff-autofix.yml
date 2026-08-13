@@ -31,7 +31,19 @@ jobs:
       - name: Apply Ruff fixes
         run: |
           ruff check . --fix --unsafe-fixes || true
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/education/test_recommender.py")
+          text = path.read_text(encoding="utf-8")
+          text = text.replace(
+              "kp_names: list[str] = None,",
+              "kp_names: list[str] | None = None,",
+          )
+          path.write_text(text, encoding="utf-8")
+          PY
           git diff --check
+          ruff check .
 
       - name: Commit fixes
         run: |
@@ -42,5 +54,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "style: apply Ruff lint fixes"
+          git commit -m "style: normalize Ruff autofix typing"
           git push origin "HEAD:${{ github.ref_name }}"
