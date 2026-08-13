@@ -16,7 +16,7 @@ from deeptutor.learning.models import (
     QuizAttempt,
     RetryAttempt,
 )
-from deeptutor.learning.storage import LearningStore
+from deeptutor.learning.storage import ConcurrentLearningUpdateError, LearningStore
 
 if TYPE_CHECKING:
     from deeptutor.learning.scheduler import SpacedRepetitionScheduler
@@ -31,7 +31,18 @@ class LearningService:
         if existing is not None:
             return existing
         progress = LearningProgress(book_id=book_id)
-        self._store.save(progress)  # persist immediately to prevent race
+        try:
+            self._store.save(progress)
+        except ConcurrentLearningUpdateError:
+            # Another request may have created the same path between our load
+            # and save. Re-read the winner rather than surfacing an expected
+            # initialization race to the learner. A missing winner means the
+            # conflict came from a different storage mutation and must remain
+            # visible instead of being guessed away.
+            existing = self._store.load(book_id)
+            if existing is not None:
+                return existing
+            raise
         return progress
 
     def init_modules(self, progress: LearningProgress, modules: list[LearningModule]) -> None:
