@@ -35,9 +35,9 @@ import traceback
 from typing import Any, Mapping
 
 try:
-    import resource
+    import resource as _resource
 except ImportError:  # pragma: no cover - Windows: resource is POSIX-only
-    resource = None  # type: ignore[assignment]
+    _resource = None
 
 DEFAULT_PORT = 8900
 RUNNER_TOKEN_ENV = "DEEPTUTOR_SANDBOX_RUNNER_TOKEN"
@@ -61,23 +61,26 @@ def _truncate_head_tail(text: str, max_chars: int) -> str:
 
 def _build_preexec_fn(memory_mb: int, cpu_seconds: int):
     """Return a ``preexec_fn`` that applies rlimits in the forked child."""
-    if not _POSIX:
+    if not _POSIX or _resource is None:
         return None
 
     def _apply() -> None:
         if memory_mb > 0:
             mem_bytes = memory_mb * 1024 * 1024
             try:
-                resource.setrlimit(resource.RLIMIT_AS, (mem_bytes, mem_bytes))
+                _resource.setrlimit(_resource.RLIMIT_AS, (mem_bytes, mem_bytes))
             except (ValueError, OSError):
                 pass
         if cpu_seconds > 0:
             try:
-                resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
+                _resource.setrlimit(_resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
             except (ValueError, OSError):
                 pass
         try:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (_RLIMIT_NOFILE, _RLIMIT_NOFILE))
+            _resource.setrlimit(
+                _resource.RLIMIT_NOFILE,
+                (_RLIMIT_NOFILE, _RLIMIT_NOFILE),
+            )
         except (ValueError, OSError):
             pass
 
@@ -161,7 +164,7 @@ def execute(payload: dict[str, Any]) -> dict[str, Any]:
     cpu_seconds = _int(limits.get("cpu_seconds"), _DEFAULT_CPU_SECONDS)
     max_output_chars = _int(limits.get("max_output_chars"), _DEFAULT_MAX_OUTPUT_CHARS)
 
-    if not _POSIX or resource is None:
+    if not _POSIX or _resource is None:
         return _error_result(
             "sandbox runner requires a POSIX platform with resource limits "
             "(unsupported on Windows)"
@@ -289,7 +292,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     """Start the threaded HTTP server, binding inside the runner container."""
-    if not _POSIX or resource is None:
+    if not _POSIX or _resource is None:
         sys.stderr.write(
             "sandbox runner requires POSIX resource limits; refusing to serve on Windows\n"
         )
