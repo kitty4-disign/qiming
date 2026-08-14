@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import logging
+import os
 import sys
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -7,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from deeptutor.logging import configure_logging
+from deeptutor.runtime.network_policy import require_safe_bind
 from deeptutor.services.config import (
     ensure_runtime_settings_files,
     export_runtime_settings_to_env,
@@ -69,6 +71,19 @@ def validate_tool_consistency():
         raise
 
 
+def validate_network_exposure() -> None:
+    """Fail closed when an auth-disabled process is exposed beyond loopback."""
+    auth_enabled = bool(load_auth_settings()["enabled"])
+    # ``DEEPTUTOR_API_HOST`` covers run_server/launcher overrides. Docker and
+    # other supervisors that bind 0.0.0.0 internally but publish only a host
+    # subset should declare the actual host-facing address via
+    # ``DEEPTUTOR_EXPOSURE_HOST``.
+    for env_name in ("DEEPTUTOR_EXPOSURE_HOST", "DEEPTUTOR_API_HOST"):
+        host = os.getenv(env_name, "").strip()
+        if host:
+            require_safe_bind(host, auth_enabled=auth_enabled)
+
+
 def _build_cors_settings() -> dict[str, object]:
     """Build CORS settings for both localhost and remote Docker deployments."""
     system_settings = load_system_settings()
@@ -87,10 +102,10 @@ def _build_cors_settings() -> dict[str, object]:
         if origin not in origins:
             origins.append(origin)
 
-    # Auth is disabled by default. In that local/single-user mode, mirror the
-    # pre-v1.3.8 behavior and allow remote Docker/LAN origins out of the box.
-    # When auth is enabled, require explicit CORS_ORIGIN(S) for credentialed
-    # cross-origin requests.
+    # Auth-disabled mode is intended for loopback-only local use. If a deployer
+    # explicitly acknowledges unauthenticated remote exposure, permissive CORS
+    # remains part of that consciously unsafe mode; authenticated deployments
+    # require explicit credentialed origins.
     allow_origin_regex = None if auth_settings["enabled"] else r"https?://.*"
     mode = "explicit" if auth_settings["enabled"] else "permissive"
     return {
@@ -108,6 +123,9 @@ async def lifespan(app: FastAPI):
     """
     # Execute on startup
     logger.info("Application startup")
+
+    # Refuse accidental LAN/public exposure before starting background services.
+    validate_network_exposure()
 
     # Validate configuration consistency
     validate_tool_consistency()
