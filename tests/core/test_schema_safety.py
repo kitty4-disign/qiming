@@ -56,9 +56,9 @@ def test_raw_schema_is_bounded_in_depth_property_count_and_text_size() -> None:
     assert len(safe["properties"]) == 64
     # The sanitizer never emits the remote recursive combinators/references;
     # bounded property traversal also prevents an untrusted schema explosion.
-    cursor = sanitize_raw_tool_schema(
-        {"type": "object", "properties": {"nested": nested}}
-    )["properties"]["nested"]
+    cursor = sanitize_raw_tool_schema({"type": "object", "properties": {"nested": nested}})[
+        "properties"
+    ]["nested"]
     depth = 0
     while cursor.get("properties"):
         depth += 1
