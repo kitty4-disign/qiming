@@ -98,6 +98,7 @@ jobs:
             tests/api/test_outputs_security.py \
             tests/agents/chat/test_tool_context_isolation.py \
             tests/education/test_learning_state_consistency.py \
+            tests/multi_user/test_registration_invite_only.py \
             tests/multi_user/test_tool_access.py \
             tests/multi_user/test_tool_access_exec.py \
             tests/services/sandbox/test_sandbox_security.py \
