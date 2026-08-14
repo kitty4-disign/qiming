@@ -152,6 +152,16 @@ def add_user(username: str, plain_password: str, role: str = "user") -> None:
     logger.info("User '%s' saved with role=%r", username, record.get("role", "user"))
 
 
+def add_first_user(username: str, plain_password: str) -> dict[str, Any] | None:
+    """Atomically create the bootstrap admin, or return None if one already exists."""
+    from deeptutor.multi_user.identity import save_first_user
+
+    record = save_first_user(username, hash_password(plain_password))
+    if record is not None:
+        logger.info("Bootstrap admin '%s' created", username)
+    return record
+
+
 def list_users() -> list[dict]:
     """Return a list of user info dicts (username, role, created_at) — no hashes."""
     from deeptutor.multi_user.identity import list_user_info
@@ -241,7 +251,7 @@ def decode_token(token: str) -> TokenPayload | None:
 
     - PocketBase mode: calls PocketBase's auth-refresh endpoint (cached in
       memory for 60 s, so only the first request per token per minute makes
-      a network call). No static JWT secret required.
+      a network call). No static secret needed.
     - Standard mode: local in-memory jwt.decode() using AUTH_SECRET — zero
       network calls, same as before.
     """
