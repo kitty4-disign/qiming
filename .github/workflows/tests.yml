@@ -92,6 +92,7 @@ jobs:
         run: |
           pytest -q \
             tests/core/agentic/test_tool_dispatch_events.py \
+            tests/core/test_schema_safety.py \
             tests/api/test_plugins_api_security.py \
             tests/api/test_unified_ws_ownership.py \
             tests/api/test_ws_auth_security.py \
