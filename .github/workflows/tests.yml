@@ -103,6 +103,7 @@ jobs:
             tests/agents/chat/test_tool_context_isolation.py \
             tests/education/test_learning_state_consistency.py \
             tests/multi_user/test_registration_invite_only.py \
+            tests/multi_user/test_auth_secret_concurrency.py \
             tests/multi_user/test_tool_access.py \
             tests/multi_user/test_tool_access_exec.py \
             tests/services/sandbox/test_sandbox_security.py \
@@ -121,7 +122,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
