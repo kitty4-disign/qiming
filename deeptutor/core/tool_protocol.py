@@ -3,7 +3,7 @@ Tool Protocol
 =============
 
 Base classes for the Tool layer (Level 1).
-Every tool — built-in or contributed via plugin — implements ``BaseTool``.
+Every tool — built-in and contributed via plugin — implements ``BaseTool``.
 """
 
 from __future__ import annotations
@@ -11,6 +11,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+from deeptutor.core.schema_safety import sanitize_raw_tool_schema
 
 
 @dataclass
@@ -49,10 +51,12 @@ class ToolDefinition:
     """
     Metadata that describes a tool to the LLM (OpenAI function-calling format).
 
-    ``raw_parameters`` carries a complete JSON-Schema object verbatim and
+    ``raw_parameters`` carries a complete upstream JSON-Schema object and
     takes precedence over ``parameters`` — used by adapter tools (e.g. MCP)
-    whose upstream schemas are arbitrary JSON Schema that would be lossy to
-    re-encode as :class:`ToolParameter` rows.
+    whose schemas would be lossy to re-encode as :class:`ToolParameter` rows.
+    Because those schemas can be controlled by an external process, they are
+    normalized through the bounded provider-safe schema sanitizer before being
+    exposed to the model.
     """
 
     name: str
@@ -63,9 +67,7 @@ class ToolDefinition:
     def to_openai_schema(self) -> dict[str, Any]:
         """Build an OpenAI-compatible function tool schema."""
         if self.raw_parameters is not None:
-            schema = dict(self.raw_parameters)
-            schema.setdefault("type", "object")
-            schema.setdefault("properties", {})
+            schema = sanitize_raw_tool_schema(self.raw_parameters)
             return {
                 "type": "function",
                 "function": {
@@ -120,7 +122,7 @@ class ToolPromptHints:
 
 @dataclass
 class ToolResult:
-    """Standardised return value from a tool execution.
+    """Standardised return value from the Tool layer.
 
     Attributes:
         content: Text returned to the LLM as the ``role=tool`` message body.
