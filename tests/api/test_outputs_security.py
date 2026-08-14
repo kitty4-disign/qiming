@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from fastapi.routing import APIRoute
+import pytest
 
 from deeptutor.api import main as api_main
 from deeptutor.api.routers.auth import require_auth
