@@ -35,6 +35,8 @@ from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from deeptutor.api.rate_limit import check_ws_message_rate_limit, new_ws_limiters
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
@@ -75,6 +77,7 @@ async def unified_websocket(ws: WebSocket) -> None:
     await ws.accept()
     closed = False
     subscription_tasks: dict[str, asyncio.Task[None]] = {}
+    ws_general_limiter, ws_expensive_limiter = new_ws_limiters()
 
     async def safe_send(data: dict[str, Any]) -> None:
         nonlocal closed
@@ -95,6 +98,20 @@ async def unified_websocket(ws: WebSocket) -> None:
             {
                 "type": "error",
                 "content": f"{kind} is not available for the current user: {object_id}",
+            }
+        )
+
+    async def reject_rate_limit(*, retry_after: int, scope: str) -> None:
+        await safe_send(
+            {
+                "type": "error",
+                "source": "unified_ws",
+                "content": "WebSocket rate limit exceeded.",
+                "metadata": {
+                    "rate_limited": True,
+                    "retry_after": retry_after,
+                    "rate_limit_scope": scope,
+                },
             }
         )
 
@@ -147,10 +164,32 @@ async def unified_websocket(ws: WebSocket) -> None:
             try:
                 msg = json.loads(raw)
             except json.JSONDecodeError:
+                decision, scope = check_ws_message_rate_limit(
+                    general=ws_general_limiter,
+                    expensive=ws_expensive_limiter,
+                    msg_type="",
+                )
+                if not decision.allowed:
+                    await reject_rate_limit(retry_after=decision.retry_after, scope=scope)
+                    await ws.close(code=4008)
+                    closed = True
+                    break
                 await safe_send({"type": "error", "content": "Invalid JSON."})
                 continue
 
-            msg_type = msg.get("type")
+            msg_type = str(msg.get("type") or "")
+            decision, scope = check_ws_message_rate_limit(
+                general=ws_general_limiter,
+                expensive=ws_expensive_limiter,
+                msg_type=msg_type,
+            )
+            if not decision.allowed:
+                await reject_rate_limit(retry_after=decision.retry_after, scope=scope)
+                if scope == "messages":
+                    await ws.close(code=4008)
+                    closed = True
+                    break
+                continue
 
             if msg_type in {"message", "start_turn"}:
                 from deeptutor.services.session import get_turn_runtime_manager
