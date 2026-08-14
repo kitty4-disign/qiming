@@ -23,9 +23,10 @@ from .paths import PROJECT_ROOT, SYSTEM_ROOT, migrate_legacy_multi_user_tree
 
 logger = logging.getLogger(__name__)
 
-# Serialises in-process writes. A separate OS file lock below covers multiple
-# Uvicorn workers / Python processes that share the same identity store.
+# Serialise in-process writes. Separate OS file locks below cover multiple
+# Uvicorn workers / Python processes sharing the same identity directory.
 _USERS_WRITE_LOCK = threading.Lock()
+_AUTH_SECRET_WRITE_LOCK = threading.Lock()
 
 AUTH_DIR = SYSTEM_ROOT / "auth"
 USERS_FILE = AUTH_DIR / "users.json"
@@ -46,15 +47,19 @@ def _users_lock_file() -> Path:
     return USERS_FILE.with_name(f"{USERS_FILE.name}.lock")
 
 
-@contextmanager
-def _process_users_lock() -> Iterator[None]:
-    """Cross-process exclusive lock for the JSON identity store.
+def _secret_lock_file() -> Path:
+    return SECRET_FILE.with_name(f"{SECRET_FILE.name}.lock")
 
-    POSIX uses ``flock``; Windows uses ``msvcrt.locking`` on one byte of a
-    sibling lock file. The lock file is intentionally separate from users.json
-    so atomic replacement of the data file never changes the locked inode.
+
+@contextmanager
+def _process_file_lock(lock_path: Path) -> Iterator[None]:
+    """Hold an exclusive OS lock on a stable sibling lock file.
+
+    POSIX uses ``flock``; Windows uses ``msvcrt.locking`` on one byte. The
+    lock file is deliberately separate from the protected data file so atomic
+    replacement of that data file never changes the inode/file descriptor that
+    carries the lock.
     """
-    lock_path = _users_lock_file()
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+b") as handle:
         if os.name == "nt":
@@ -80,7 +85,15 @@ def _process_users_lock() -> Iterator[None]:
 def _users_write_guard() -> Iterator[None]:
     """Serialize identity mutations both within and across processes."""
     with _USERS_WRITE_LOCK:
-        with _process_users_lock():
+        with _process_file_lock(_users_lock_file()):
+            yield
+
+
+@contextmanager
+def _auth_secret_write_guard() -> Iterator[None]:
+    """Serialize auth-secret migration/creation within and across processes."""
+    with _AUTH_SECRET_WRITE_LOCK:
+        with _process_file_lock(_secret_lock_file()):
             yield
 
 
@@ -142,6 +155,27 @@ def _write_users(users: dict[str, dict[str, Any]]) -> None:
         temp_path.unlink(missing_ok=True)
 
 
+def _write_secret(secret: str) -> None:
+    """Atomically persist the JWT signing secret with owner-only permissions."""
+    SECRET_FILE.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = SECRET_FILE.with_name(
+        f".{SECRET_FILE.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+    )
+    try:
+        temp_path.write_text(secret, encoding="utf-8")
+        try:
+            temp_path.chmod(0o600)
+        except OSError:
+            pass
+        temp_path.replace(SECRET_FILE)
+        try:
+            SECRET_FILE.chmod(0o600)
+        except OSError:
+            pass
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
 def _migrate_legacy_users() -> dict[str, dict[str, Any]] | None:
     if USERS_FILE.exists() or not LEGACY_USERS_FILE.exists():
         return None
@@ -164,18 +198,10 @@ def _migrate_legacy_users() -> dict[str, dict[str, Any]] | None:
 def _migrate_secret() -> None:
     if SECRET_FILE.exists() or not LEGACY_SECRET_FILE.exists():
         return
-    try:
-        secret = LEGACY_SECRET_FILE.read_text(encoding="utf-8").strip()
-        if secret:
-            SECRET_FILE.parent.mkdir(parents=True, exist_ok=True)
-            SECRET_FILE.write_text(secret, encoding="utf-8")
-            try:
-                SECRET_FILE.chmod(0o600)
-            except OSError:
-                pass
-            logger.info("Migrated auth secret from %s to %s", LEGACY_SECRET_FILE, SECRET_FILE)
-    except Exception as exc:
-        logger.warning("Failed to migrate legacy auth secret: %s", exc)
+    secret = LEGACY_SECRET_FILE.read_text(encoding="utf-8").strip()
+    if secret:
+        _write_secret(secret)
+        logger.info("Migrated auth secret from %s to %s", LEGACY_SECRET_FILE, SECRET_FILE)
 
 
 def load_users(  # nosec B107 - empty defaults mean "no env fallback supplied".
@@ -390,25 +416,33 @@ def set_role(username: str, role: Role) -> bool:
 
 
 def load_or_create_auth_secret() -> str:
+    """Return one stable JWT signing secret shared by all local workers.
+
+    Migration, first creation and the read-back happen under the same OS lock.
+    If persistence fails we raise instead of returning a per-process fallback:
+    divergent signing keys would make authentication nondeterministic and can
+    invalidate tokens depending on which worker handles a request.
+    """
     migrate_legacy_multi_user_tree()
-    _migrate_secret()
     try:
-        if SECRET_FILE.exists():
-            existing = SECRET_FILE.read_text(encoding="utf-8").strip()
-            if existing:
-                return existing
-        SECRET_FILE.parent.mkdir(parents=True, exist_ok=True)
-        generated = secrets.token_hex(32)
-        SECRET_FILE.write_text(generated, encoding="utf-8")
-        try:
-            SECRET_FILE.chmod(0o600)
-        except OSError:
-            pass
-        logger.warning(
-            "Auth is enabled and no auth_secret file exists. Generated a stable local secret at %s.",
-            SECRET_FILE,
-        )
-        return generated
+        with _auth_secret_write_guard():
+            _migrate_secret()
+            if SECRET_FILE.exists():
+                existing = SECRET_FILE.read_text(encoding="utf-8").strip()
+                if existing:
+                    return existing
+
+            generated = secrets.token_hex(32)
+            _write_secret(generated)
+            persisted = SECRET_FILE.read_text(encoding="utf-8").strip()
+            if not persisted:
+                raise RuntimeError("auth secret file is empty after creation")
+            logger.warning(
+                "Auth is enabled and no auth_secret file existed. Generated a stable local "
+                "secret at %s.",
+                SECRET_FILE,
+            )
+            return persisted
     except Exception as exc:
-        logger.warning("Failed to load/create auth secret at %s: %s", SECRET_FILE, exc)
-        return secrets.token_hex(32)
+        logger.error("Failed to load or create auth secret at %s", SECRET_FILE, exc_info=True)
+        raise RuntimeError("Unable to establish a persistent authentication secret") from exc
