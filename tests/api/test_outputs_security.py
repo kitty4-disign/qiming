@@ -60,9 +60,7 @@ async def test_outputs_reject_private_or_missing_files(
     monkeypatch.setattr(api_main, "get_path_service", lambda: service)
 
     with pytest.raises(api_main.HTTPException) as exc_info:
-        await api_main.serve_public_output(
-            "workspace/chat/chat/turn-1/exec/private.json"
-        )
+        await api_main.serve_public_output("workspace/chat/chat/turn-1/exec/private.json")
 
     assert private_file.exists()
     assert exc_info.value.status_code == 404
