@@ -61,7 +61,9 @@ class SlidingWindowRateLimiter:
                     # bounded window rather than growing the map without limit.
                     oldest_key = min(
                         self._events,
-                        key=lambda item: self._events[item][0] if self._events[item] else float("inf"),
+                        key=lambda item: (
+                            self._events[item][0] if self._events[item] else float("inf")
+                        ),
                     )
                     self._events.pop(oldest_key, None)
                 bucket = deque()
