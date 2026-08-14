@@ -35,15 +35,21 @@ def main() -> None:
     # Get port from configuration
     from deeptutor.logging import configure_logging
     from deeptutor.runtime.mode import RunMode, set_mode
+    from deeptutor.runtime.network_policy import require_safe_bind
+    from deeptutor.services.config import load_auth_settings
     from deeptutor.services.setup import get_backend_port
 
     set_mode(RunMode.SERVER)
     configure_logging()
     backend_port = get_backend_port(project_root)
     # Safe-by-default local binding. Exposing the API beyond loopback is an
-    # explicit deployer choice and should be paired with authentication and a
-    # trusted reverse proxy/network policy.
+    # explicit deployer choice and must be paired with authentication unless
+    # the deployer explicitly acknowledges the unauthenticated exposure risk.
     api_host = os.getenv("DEEPTUTOR_API_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    require_safe_bind(
+        api_host,
+        auth_enabled=bool(load_auth_settings()["enabled"]),
+    )
 
     # Configure reload_excludes to skip directories that shouldn't trigger reloads
     # Use absolute paths to ensure they're properly resolved
@@ -52,7 +58,7 @@ def main() -> None:
         str(project_root / ".venv"),  # Virtual environment (alternative name)
         str(project_root / "data"),  # Data directory (includes knowledge_bases, user data, logs)
         str(project_root / "node_modules"),  # Node modules (if any at root)
-        str(project_root / "web" / "node_modules"),  # Web node modules
+        str(project_root / "web" / "node_modules"),  # Node modules
         str(project_root / "web" / ".next"),  # Next.js build
         str(project_root / ".git"),  # Git directory
         str(project_root / "scripts"),  # Scripts directory - don't reload on launcher changes
