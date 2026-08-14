@@ -94,6 +94,7 @@ jobs:
             tests/core/agentic/test_tool_dispatch_events.py \
             tests/api/test_plugins_api_security.py \
             tests/api/test_unified_ws_ownership.py \
+            tests/api/test_outputs_security.py \
             tests/agents/chat/test_tool_context_isolation.py \
             tests/education/test_learning_state_consistency.py \
             tests/multi_user/test_tool_access.py \
