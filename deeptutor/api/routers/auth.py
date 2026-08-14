@@ -294,7 +294,7 @@ async def ws_require_auth(ws: WebSocket) -> _CtxToken | _WsAuthFailed:
     if not AUTH_ENABLED:
         return _install_current_user(None)
 
-    token = ws.query_params.get("token") or ws.cookies.get("dt_token")
+    token = ws.cookies.get("dt_token")
     payload = decode_token(token) if token else None
     if not payload:
         await ws.close(code=4001)
