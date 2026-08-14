@@ -948,7 +948,7 @@ class AgenticChatPipeline:
         elif tool_name == "web_search":
             kwargs.setdefault("query", context.user_message)
             if task_dir is not None:
-                kwargs["output_dir"] = str(task_dir / "web_search")
+                kwargs.setdefault("output_dir", str(task_dir / "web_search"))
         elif tool_name == "write_note":
             kwargs["conversation_history"] = list(context.conversation_history or [])
             kwargs["current_user_message"] = context.user_message or ""
