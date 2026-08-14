@@ -9,6 +9,7 @@ Provides lookup, listing, and OpenAI schema generation.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from deeptutor.core.tool_protocol import BaseTool, ToolDefinition, ToolPromptHints
@@ -70,6 +71,34 @@ class ToolRegistry:
         merged_kwargs = {**default_kwargs, **(kwargs or {})}
 
         return resolved_name, merged_kwargs
+
+    @staticmethod
+    def _constrain_web_search_output_dir(kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Keep web-search artifacts inside the current user's data root.
+
+        ``output_dir`` is execution plumbing, not a model-controlled filesystem
+        destination. Native tool schemas do not expose it, but malformed or
+        adversarial tool-call JSON can still include undeclared properties.
+        Preserve server-injected paths that resolve inside the current user's
+        root and drop anything that escapes it (including ``..`` or symlinks).
+        """
+        raw_output_dir = kwargs.get("output_dir")
+        if not raw_output_dir:
+            return kwargs
+
+        try:
+            from deeptutor.services.path_service import get_path_service
+
+            root = get_path_service().get_user_root().resolve()
+            candidate = Path(str(raw_output_dir)).expanduser().resolve()
+            candidate.relative_to(root)
+        except (OSError, RuntimeError, ValueError):
+            logger.warning("Rejected web_search output_dir outside current user root")
+            kwargs.pop("output_dir", None)
+            return kwargs
+
+        kwargs["output_dir"] = str(candidate)
+        return kwargs
 
     def get(self, name: str) -> BaseTool | None:
         resolved_name, _ = self._resolve_request(name)
@@ -145,6 +174,8 @@ class ToolRegistry:
         positionally.
         """
         resolved_name, resolved_kwargs = self._resolve_request(name, kwargs)
+        if resolved_name == "web_search":
+            resolved_kwargs = self._constrain_web_search_output_dir(resolved_kwargs)
         tool = self._tools.get(resolved_name)
         if tool is None:
             raise KeyError(f"Unknown tool: {name}")
