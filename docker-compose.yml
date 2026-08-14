@@ -17,6 +17,8 @@
 # Safe exposure defaults:
 #   Published host ports bind to 127.0.0.1. To expose through a trusted reverse
 #   proxy/network, explicitly set DEEPTUTOR_DOCKER_BIND_HOST and enable auth.
+#   Auth-disabled remote exposure is rejected unless the deployer also sets
+#   DEEPTUTOR_ACK_UNAUTHENTICATED_REMOTE=1 as an explicit unsafe acknowledgement.
 #
 # Local LLM (LM Studio / Ollama / vLLM):
 #   Use "host.docker.internal" instead of "localhost" in provider base_url fields.
@@ -70,6 +72,12 @@ services:
       - ./data:/app/data
 
     environment:
+      # Tell the API the host-facing publish address. The backend itself binds
+      # 0.0.0.0 inside the container for bridge networking, so this value is the
+      # address that matters for accidental LAN/public exposure checks.
+      - DEEPTUTOR_EXPOSURE_HOST=${DEEPTUTOR_DOCKER_BIND_HOST:-127.0.0.1}
+      # Deliberate escape hatch only. Leave empty in normal deployments.
+      - DEEPTUTOR_ACK_UNAUTHENTICATED_REMOTE=${DEEPTUTOR_ACK_UNAUTHENTICATED_REMOTE:-}
       # Route untrusted shell exec to the runner sidecar (SYSTEM isolation).
       - DEEPTUTOR_SANDBOX_RUNNER_URL=http://sandbox-runner:8900
       # /exec fails closed when this is empty. Use the same strong secret on
