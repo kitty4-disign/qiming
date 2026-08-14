@@ -88,6 +88,4 @@ def test_tool_definition_sanitizes_raw_parameters_before_llm_exposure() -> None:
 def test_non_object_external_root_is_forced_to_function_argument_object() -> None:
     safe = sanitize_raw_tool_schema({"type": "array", "items": {"type": "string"}})
 
-    assert safe["type"] == "object"
-    assert safe["properties"] == {}
-    assert safe["items"] == {"type": "string"}
+    assert safe == {"type": "object", "properties": {}}
