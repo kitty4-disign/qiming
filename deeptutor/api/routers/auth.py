@@ -35,6 +35,7 @@ from deeptutor.services.auth import (
     POCKETBASE_ENABLED,
     TOKEN_EXPIRE_HOURS,
     TokenPayload,
+    add_first_user,
     add_user,
     authenticate,
     authenticate_pb,
@@ -492,28 +493,23 @@ async def register(body: RegisterRequest) -> dict:
             "is_admin": False,
         }
 
-    # Standard mode — only allowed before the first admin exists.
+    # ``is_first_user`` remains a fast UI-facing precheck, but the actual
+    # bootstrap decision is repeated atomically inside ``add_first_user``.
     if not is_first_user():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Self-registration is closed. Ask an administrator to create your account.",
         )
 
-    existing = {u["username"] for u in list_users()}
-    if body.username in existing:
+    record = add_first_user(body.username, body.password)
+    if record is None:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Username already taken",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Self-registration is closed. Ask an administrator to create your account.",
         )
 
-    add_user(body.username, body.password)
-    user_id = ""
-    role = "user"
-    for item in list_users():
-        if item.get("username") == body.username:
-            user_id = str(item.get("id") or "")
-            role = str(item.get("role") or "user")
-            break
+    role = str(record.get("role") or "admin")
+    user_id = str(record.get("id") or "")
     logger.info(f"First user (admin) registered: '{body.username}'")
     return {
         "ok": True,
