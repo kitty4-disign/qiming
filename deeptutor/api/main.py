@@ -5,8 +5,9 @@ import sys
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
+from deeptutor.api.rate_limit import check_http_rate_limit
 from deeptutor.logging import configure_logging
 from deeptutor.runtime.network_policy import require_safe_bind
 from deeptutor.services.config import (
@@ -253,6 +254,21 @@ if not any(getattr(h, "_deeptutor_access_handler", False) for h in _access_logge
     _access_logger.addHandler(_access_handler)
     _access_logger.setLevel(logging.INFO)
     _access_logger.propagate = False
+
+
+@app.middleware("http")
+async def enforce_http_rate_limits(request, call_next):
+    decision = check_http_rate_limit(request)
+    if not decision.allowed:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded"},
+            headers={
+                "Retry-After": str(decision.retry_after),
+                "X-RateLimit-Limit": str(decision.limit),
+            },
+        )
+    return await call_next(request)
 
 
 @app.middleware("http")
