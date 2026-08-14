@@ -99,7 +99,7 @@ class SlidingWindowRateLimiter:
 
 _HTTP_GENERAL = SlidingWindowRateLimiter(limit=600, window_seconds=60)
 _HTTP_AUTH = SlidingWindowRateLimiter(limit=20, window_seconds=60)
-_HTTP_EXPENSIVE = SlidingWindowRateLimiter(limit=30, window_seconds=60)
+_HTTP_EXPENSIVE = SlidingWindowRateLimiter(limit=60, window_seconds=60)
 
 _AUTH_LIMITED_PATHS = {
     "/api/v1/auth/login",
@@ -118,8 +118,13 @@ def _peer_key(request: Request) -> str:
     return request.client.host if request.client is not None else "unknown"
 
 
+def _expensive_scope(path: str) -> str:
+    parts = [part for part in path.split("/") if part]
+    return parts[2] if len(parts) >= 3 else path
+
+
 def check_http_rate_limit(request: Request) -> RateLimitDecision:
-    """Apply a broad API limit plus stricter auth/high-cost request limits."""
+    """Apply a broad endpoint limit plus stricter auth/high-cost request limits."""
     if request.method in {"OPTIONS", "HEAD"}:
         return RateLimitDecision(allowed=True)
 
@@ -128,7 +133,7 @@ def check_http_rate_limit(request: Request) -> RateLimitDecision:
         return RateLimitDecision(allowed=True)
 
     peer = _peer_key(request)
-    general = _HTTP_GENERAL.check(peer)
+    general = _HTTP_GENERAL.check((peer, path))
     if not general.allowed:
         return general
 
@@ -138,7 +143,7 @@ def check_http_rate_limit(request: Request) -> RateLimitDecision:
     if request.method in {"POST", "PUT", "PATCH", "DELETE"} and path.startswith(
         _EXPENSIVE_PREFIXES
     ):
-        return _HTTP_EXPENSIVE.check((peer, path.split("/", 5)[:5][3] if "/" in path else path))
+        return _HTTP_EXPENSIVE.check((peer, _expensive_scope(path)))
 
     return general
 
