@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 import json
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 import pytest
 from starlette.requests import Request
