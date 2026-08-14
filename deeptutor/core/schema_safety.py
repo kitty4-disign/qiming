@@ -148,11 +148,24 @@ def sanitize_raw_tool_schema(schema: Any) -> dict[str, Any]:
     properties = safe.get("properties")
     if not isinstance(properties, dict):
         properties = {}
-    safe["type"] = "object"
-    safe["properties"] = properties
-    if "required" in safe and not properties:
-        safe.pop("required", None)
-    return safe
+
+    # Function arguments must have an object root. Scalar/array-only keywords
+    # inherited from a malformed upstream root would make the resulting schema
+    # internally contradictory, so keep only object-level metadata here.
+    root: dict[str, Any] = {
+        "type": "object",
+        "properties": properties,
+    }
+    description = safe.get("description")
+    if isinstance(description, str) and description:
+        root["description"] = description
+    required = safe.get("required")
+    if isinstance(required, list) and required and properties:
+        root["required"] = required
+    additional = safe.get("additionalProperties")
+    if isinstance(additional, (bool, dict)):
+        root["additionalProperties"] = additional
+    return root
 
 
 __all__ = ["sanitize_raw_tool_schema"]
