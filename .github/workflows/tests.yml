@@ -96,6 +96,7 @@ jobs:
             tests/api/test_unified_ws_ownership.py \
             tests/api/test_ws_auth_security.py \
             tests/api/test_outputs_security.py \
+            tests/api/test_network_exposure.py \
             tests/agents/chat/test_tool_context_isolation.py \
             tests/education/test_learning_state_consistency.py \
             tests/multi_user/test_registration_invite_only.py \
@@ -103,6 +104,7 @@ jobs:
             tests/multi_user/test_tool_access_exec.py \
             tests/services/sandbox/test_sandbox_security.py \
             tests/runtime/test_launcher.py \
+            tests/runtime/test_network_policy.py \
             deeptutor/learning/tests/test_service_replace_merge.py
         env:
           PYTHONPATH: ${{ github.workspace }}
