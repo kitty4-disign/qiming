@@ -2,25 +2,29 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
 import logging
+import os
 from pathlib import Path
 import secrets
 import threading
-from typing import Any
+from typing import Any, Iterator
 from uuid import uuid4
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 from .models import Role
 from .paths import PROJECT_ROOT, SYSTEM_ROOT, migrate_legacy_multi_user_tree
 
 logger = logging.getLogger(__name__)
 
-# Serialises writes to USERS_FILE so a concurrent burst of /register requests
-# cannot all see ``not users`` and each promote themselves to admin. Single-
-# process FastAPI deployments (the ``deeptutor start`` launcher) are fully covered;
-# multi-worker deployments still race and must rely on an external user store
-# (e.g. PocketBase), which is documented in the multi-user README.
+# Serialises in-process writes. A separate OS file lock below covers multiple
+# Uvicorn workers / Python processes that share the same identity store.
 _USERS_WRITE_LOCK = threading.Lock()
 
 AUTH_DIR = SYSTEM_ROOT / "auth"
@@ -36,6 +40,48 @@ def new_user_id() -> str:
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _users_lock_file() -> Path:
+    return USERS_FILE.with_name(f"{USERS_FILE.name}.lock")
+
+
+@contextmanager
+def _process_users_lock() -> Iterator[None]:
+    """Cross-process exclusive lock for the JSON identity store.
+
+    POSIX uses ``flock``; Windows uses ``msvcrt.locking`` on one byte of a
+    sibling lock file. The lock file is intentionally separate from users.json
+    so atomic replacement of the data file never changes the locked inode.
+    """
+    lock_path = _users_lock_file()
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+b") as handle:
+        if os.name == "nt":
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                handle.flush()
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if os.name == "nt":
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+@contextmanager
+def _users_write_guard() -> Iterator[None]:
+    """Serialize identity mutations both within and across processes."""
+    with _USERS_WRITE_LOCK:
+        with _process_users_lock():
+            yield
 
 
 def _canonical_record(
@@ -81,8 +127,19 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _write_users(users: dict[str, dict[str, Any]]) -> None:
+    """Atomically replace users.json so readers never observe partial JSON."""
     USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    USERS_FILE.write_text(json.dumps(users, indent=2, ensure_ascii=False), encoding="utf-8")
+    temp_path = USERS_FILE.with_name(
+        f".{USERS_FILE.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+    )
+    try:
+        temp_path.write_text(
+            json.dumps(users, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        temp_path.replace(USERS_FILE)
+    finally:
+        temp_path.unlink(missing_ok=True)
 
 
 def _migrate_legacy_users() -> dict[str, dict[str, Any]] | None:
@@ -169,25 +226,55 @@ def load_users(  # nosec B107 - empty defaults mean "no env fallback supplied".
     return {}
 
 
+def _new_user_record(
+    username: str,
+    hashed_password: str,
+    role: Role,
+    existing: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    existing = existing or {}
+    return {
+        "id": str(existing.get("id") or new_user_id()),
+        "hash": hashed_password,
+        "role": role,
+        "created_at": str(existing.get("created_at") or utc_now()),
+        "disabled": bool(existing.get("disabled", False)),
+        "avatar": str(existing.get("avatar") or ""),
+    }
+
+
 def save_user(username: str, hashed_password: str, role: Role = "user") -> dict[str, Any]:
     USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    # Read-modify-write must be atomic so concurrent first-time registrations
-    # cannot each see an empty store and each promote themselves to admin.
-    with _USERS_WRITE_LOCK:
+    with _users_write_guard():
         users = load_users()
         effective_role: Role = "admin" if not users else role
-        existing = users.get(username) or {}
-        record = {
-            "id": str(existing.get("id") or new_user_id()),
-            "hash": hashed_password,
-            "role": effective_role,
-            "created_at": str(existing.get("created_at") or utc_now()),
-            "disabled": bool(existing.get("disabled", False)),
-            "avatar": str(existing.get("avatar") or ""),
-        }
+        record = _new_user_record(
+            username,
+            hashed_password,
+            effective_role,
+            users.get(username),
+        )
         users[username] = record
         _write_users(users)
     return record
+
+
+def save_first_user(username: str, hashed_password: str) -> dict[str, Any] | None:
+    """Create the bootstrap admin iff the shared user store is still empty.
+
+    The emptiness check and write happen while holding the same cross-process
+    lock, so at most one concurrent public registration can succeed. A loser
+    returns ``None`` and must be rejected by the HTTP bootstrap endpoint.
+    """
+    USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with _users_write_guard():
+        users = load_users()
+        if users:
+            return None
+        record = _new_user_record(username, hashed_password, "admin")
+        users[username] = record
+        _write_users(users)
+        return record
 
 
 def list_user_info(  # nosec B107 - empty defaults mean "no env fallback supplied".
@@ -219,27 +306,28 @@ def get_user_by_id(user_id: str) -> tuple[str, dict[str, Any]] | None:
 
 
 def delete_user(username: str) -> bool:
-    if not USERS_FILE.exists():
-        return False
-    users = load_users()
-    if username not in users:
-        return False
-    users.pop(username, None)
-    _write_users(users)
-    return True
+    with _users_write_guard():
+        if not USERS_FILE.exists():
+            return False
+        users = load_users()
+        if username not in users:
+            return False
+        users.pop(username, None)
+        _write_users(users)
+        return True
 
 
 def set_avatar(username: str, avatar: str) -> bool:
     """Update the avatar marker for an existing user. Returns True on success."""
-    if not USERS_FILE.exists():
-        return False
-    with _USERS_WRITE_LOCK:
+    with _users_write_guard():
+        if not USERS_FILE.exists():
+            return False
         users = load_users()
         if username not in users:
             return False
         users[username]["avatar"] = avatar
         _write_users(users)
-    return True
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -290,14 +378,15 @@ def delete_avatar_file(user_id: str) -> None:
 def set_role(username: str, role: Role) -> bool:
     if role not in {"admin", "user"}:
         raise ValueError("role must be 'admin' or 'user'")
-    if not USERS_FILE.exists():
-        return False
-    users = load_users()
-    if username not in users:
-        return False
-    users[username]["role"] = role
-    _write_users(users)
-    return True
+    with _users_write_guard():
+        if not USERS_FILE.exists():
+            return False
+        users = load_users()
+        if username not in users:
+            return False
+        users[username]["role"] = role
+        _write_users(users)
+        return True
 
 
 def load_or_create_auth_secret() -> str:
