@@ -16,59 +16,57 @@
                      (replaces hardcoded bg-black/40 in components)
    ──────────────────────────────────────────────────────────────────────── */
 
-  /* Light — Claude's warm "paper" canvas. A soft ivory background (#faf9f5,
-     lifted straight from Claude's chrome), warm near-black ink, and the
-     signature clay/terracotta accent. The warmth stays quiet on the canvas
-     and only deepens on filled surfaces (selected nav, panels) and the
-     primary button. This is the default theme. */
+  /* Light — calm paper-white workspace with deep teal as the learning focus.
+     The palette is intentionally cooler than a generic chat product: it keeps
+     extended reading comfortable while making active learning decisions clear. */
   :root {
     color-scheme: light;
-    --background: #faf9f5;
-    --foreground: #26241f;
+    --background: #f5f9f8;
+    --foreground: #17343c;
     --card: #ffffff;
-    --card-foreground: #26241f;
+    --card-foreground: #17343c;
     --popover: #ffffff;
-    --popover-foreground: #26241f;
-    --primary: #c96442;
+    --popover-foreground: #17343c;
+    --primary: #0f766e;
     --primary-foreground: #ffffff;
-    --secondary: #f0eee6;
-    --secondary-foreground: #26241f;
-    --muted: #efece3;
-    --muted-foreground: #75726b;
-    --accent: #eae7dc;
-    --accent-foreground: #26241f;
-    --destructive: #be3f30;
+    --secondary: #eaf3f1;
+    --secondary-foreground: #17343c;
+    --muted: #e7f0ee;
+    --muted-foreground: #61777e;
+    --accent: #d9ece8;
+    --accent-foreground: #0a4f4b;
+    --destructive: #c7483f;
     --destructive-foreground: #ffffff;
-    --border: #e7e3d7;
-    --input: #e7e3d7;
-    --ring: #c96442;
-    --overlay: rgba(38, 36, 31, 0.42);
+    --border: #d6e4e1;
+    --input: #c9dbd7;
+    --ring: #0f766e;
+    --overlay: rgba(10, 42, 49, 0.42);
   }
 
-  /* Dark — Claude's warm charcoal. Same clay family as Light, brightened a
-     touch so the accent reads on the near-black canvas. */
+  /* Dark — blue-charcoal surfaces preserve the same visual language while
+     lifting contrast for long study sessions and syntax-heavy answers. */
   .dark {
     color-scheme: dark;
-    --background: #262421;
-    --foreground: #ece9e2;
-    --card: #302d29;
-    --card-foreground: #ece9e2;
-    --popover: #302d29;
-    --popover-foreground: #ece9e2;
-    --primary: #d97757;
-    --primary-foreground: #26231f;
-    --secondary: #302d29;
-    --secondary-foreground: #ece9e2;
-    --muted: #302d29;
-    --muted-foreground: #a8a39a;
-    --accent: #38342f;
-    --accent-foreground: #ece9e2;
-    --destructive: #e0553f;
+    --background: #0d1d23;
+    --foreground: #e7f1ef;
+    --card: #14282e;
+    --card-foreground: #e7f1ef;
+    --popover: #173038;
+    --popover-foreground: #e7f1ef;
+    --primary: #2dd4bf;
+    --primary-foreground: #08272a;
+    --secondary: #12242a;
+    --secondary-foreground: #e7f1ef;
+    --muted: #1b3339;
+    --muted-foreground: #9bb1b3;
+    --accent: #21464a;
+    --accent-foreground: #d8fffa;
+    --destructive: #f2776b;
     --destructive-foreground: #ffffff;
-    --border: #3d3833;
-    --input: #3d3833;
-    --ring: #d97757;
-    --overlay: rgba(0, 0, 0, 0.6);
+    --border: #29454a;
+    --input: #33565a;
+    --ring: #2dd4bf;
+    --overlay: rgba(0, 0, 0, 0.64);
   }
 
   * {
@@ -93,8 +91,16 @@
 
   body {
     @apply antialiased;
-    background: var(--background);
+    background:
+      radial-gradient(circle at 92% -12%, rgba(45, 212, 191, 0.12), transparent 26rem),
+      var(--background);
     color: var(--foreground);
+  }
+
+  .dark body {
+    background:
+      radial-gradient(circle at 92% -12%, rgba(45, 212, 191, 0.08), transparent 26rem),
+      var(--background);
   }
 
   button,
@@ -111,7 +117,7 @@
 
 @layer components {
   .surface-card {
-    @apply rounded-2xl border bg-[var(--card)] shadow-sm;
+    @apply rounded-2xl border bg-[var(--card)] shadow-[0_12px_30px_-24px_rgba(7,71,77,0.45)];
   }
 
   .muted-chip {

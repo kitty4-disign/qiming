@@ -12,6 +12,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 
 import {
+  ArrowUpRight,
   BarChart3,
   BrainCircuit,
   Clapperboard,
@@ -288,6 +289,63 @@ const CAPABILITIES: CapabilityDef[] = [
     allowedTools: ["web_search", "code_execution"],
     defaultTools: [],
     loopEngine: true,
+  },
+];
+
+interface StarterAction {
+  title: string;
+  description: string;
+  prompt: string;
+  capability: string;
+  icon: LucideIcon;
+  iconClass: string;
+  hoverClass: string;
+}
+
+const STARTER_ACTIONS: StarterAction[] = [
+  {
+    title: "制定学习计划",
+    description: "把目标拆成今天就能开始的步骤",
+    prompt: "请根据我的学习目标，为我制定一份循序渐进的学习计划。",
+    capability: "mastery_path",
+    icon: GraduationCap,
+    iconClass:
+      "bg-cyan-500/10 text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-300",
+    hoverClass:
+      "hover:border-cyan-300/80 dark:hover:border-cyan-500/50",
+  },
+  {
+    title: "深度讲解难题",
+    description: "一步一步理解概念、方法与答案",
+    prompt: "请用循序渐进的方式，帮我讲解这道题或这个概念。",
+    capability: "deep_solve",
+    icon: BrainCircuit,
+    iconClass:
+      "bg-violet-500/10 text-violet-700 dark:bg-violet-400/10 dark:text-violet-300",
+    hoverClass:
+      "hover:border-violet-300/80 dark:hover:border-violet-500/50",
+  },
+  {
+    title: "开始一项研究",
+    description: "整理问题、资料与可信的结论",
+    prompt: "请帮我围绕这个主题梳理研究问题、检索方向和学习路径。",
+    capability: "deep_research",
+    icon: Microscope,
+    iconClass:
+      "bg-amber-500/10 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300",
+    hoverClass:
+      "hover:border-amber-300/80 dark:hover:border-amber-500/50",
+  },
+  {
+    title: "生成练习与反馈",
+    description: "用有针对性的练习巩固掌握程度",
+    prompt: "请围绕我正在学习的内容，为我生成一组练习题。",
+    capability: "deep_question",
+    icon: PenLine,
+    iconClass:
+      "bg-rose-500/10 text-rose-700 dark:bg-rose-400/10 dark:text-rose-300",
+    hoverClass:
+      "hover:border-rose-300/80 dark:hover:border-rose-500/50",
   },
 ];
 
@@ -633,42 +691,6 @@ export default function ChatPage() {
     }
   }, [capabilityNeedsConfig, ensureActivityPanelOpen]);
   const hasMessages = state.messages.length > 0;
-  // Time-of-day greeting: seeded once on mount from the user's local clock so
-  // the heading stays stable while they're on the page. State (not useMemo)
-  // because the random pick would otherwise mismatch SSR ↔ client hydration.
-  const [welcomeGreeting, setWelcomeGreeting] = useState<string>(
-    "What would you like to learn?",
-  );
-  useEffect(() => {
-    const hour = new Date().getHours();
-    let bucket: string[];
-    if (hour >= 5 && hour < 12) {
-      bucket = [
-        "Good morning.",
-        "Morning — let's learn something.",
-        "What would you like to learn?",
-      ];
-    } else if (hour >= 12 && hour < 17) {
-      bucket = [
-        "Good afternoon.",
-        "Afternoon — what's on your mind?",
-        "What would you like to learn?",
-      ];
-    } else if (hour >= 17 && hour < 22) {
-      bucket = [
-        "Good evening.",
-        "Evening — what shall we explore?",
-        "What would you like to learn?",
-      ];
-    } else {
-      bucket = [
-        "It's late today.",
-        "Burning the midnight oil?",
-        "What would you like to learn?",
-      ];
-    }
-    setWelcomeGreeting(bucket[Math.floor(Math.random() * bucket.length)]);
-  }, []);
   const firstUserTitle = useMemo(
     () =>
       state.messages
@@ -1919,18 +1941,73 @@ export default function ChatPage() {
             {sessionLoading ? (
               <SessionLoadingView onCancel={cancelSessionLoad} />
             ) : !hasMessages ? (
-              <div className="flex flex-1 min-h-0 flex-col items-center justify-end pb-14 animate-fade-in">
-                <div className="flex items-center justify-center gap-4">
-                  <span
-                    aria-hidden
-                    className="flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-[11px] bg-[var(--primary)] font-serif text-[22px] font-semibold leading-none text-[var(--primary-foreground)]"
-                  >
-                    启
-                  </span>
-                  <h1 className="font-serif text-[40px] font-medium leading-[1.1] tracking-[-0.015em] text-[var(--foreground)]">
-                    {t(welcomeGreeting)}
-                  </h1>
-                </div>
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-6 animate-fade-in">
+                <section className="w-full max-w-[840px]">
+                  <div className="relative overflow-hidden rounded-[30px] border border-[var(--border)]/80 bg-gradient-to-br from-white via-[#f8fffe] to-[#edf9f8] px-6 py-7 shadow-[0_24px_65px_-38px_rgba(13,74,86,0.36)] sm:px-9 sm:py-9 dark:from-[#13232a] dark:via-[#16252b] dark:to-[#15212e]">
+                    <div
+                      aria-hidden
+                      className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-cyan-300/20 blur-3xl dark:bg-cyan-400/10"
+                    />
+                    <div
+                      aria-hidden
+                      className="absolute -bottom-24 left-1/3 h-44 w-44 rounded-full bg-amber-200/20 blur-3xl dark:bg-amber-400/5"
+                    />
+                    <div className="relative">
+                      <div className="mb-6 flex flex-wrap items-center gap-2.5">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)] font-serif text-lg font-semibold text-[var(--primary-foreground)] shadow-sm">
+                          启
+                        </span>
+                        <span className="text-sm font-semibold tracking-[0.16em] text-[var(--primary)]">
+                          {t("启明学习中枢")}
+                        </span>
+                        <span className="rounded-full border border-[var(--border)] bg-white/70 px-2.5 py-1 text-[11px] font-medium text-[var(--muted-foreground)] backdrop-blur dark:bg-white/5">
+                          {t("从目标到掌握")}
+                        </span>
+                      </div>
+                      <h1 className="max-w-[650px] font-serif text-[32px] font-semibold leading-[1.15] tracking-[-0.03em] text-[var(--foreground)] sm:text-[42px]">
+                        {t("从一个问题，")}
+                        <span className="text-[var(--primary)]">{t("开启今天的成长。")}</span>
+                      </h1>
+                      <p className="mt-4 max-w-[590px] text-[15px] leading-7 text-[var(--muted-foreground)] sm:text-base">
+                        {t("启明会陪你澄清目标、理解知识、形成练习，并把每一次探索沉淀为可持续的学习路径。")}
+                      </p>
+                      <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                        {STARTER_ACTIONS.map((action) => {
+                          const Icon = action.icon;
+                          return (
+                            <button
+                              key={action.title}
+                              type="button"
+                              onClick={() => {
+                                handleSelectCapability(action.capability);
+                                window.requestAnimationFrame(() => {
+                                  handlePrefillComposer(action.prompt);
+                                });
+                              }}
+                              className={`group flex min-h-[96px] items-start gap-3.5 rounded-2xl border border-[var(--border)]/75 bg-white/70 p-4 text-left shadow-[0_1px_0_rgba(255,255,255,0.8)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_14px_28px_-20px_rgba(15,118,110,0.5)] dark:bg-white/[0.035] dark:hover:bg-white/[0.07] ${action.hoverClass}`}
+                            >
+                              <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${action.iconClass}`}>
+                                <Icon size={19} strokeWidth={1.9} />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-center gap-2 text-[14px] font-semibold text-[var(--foreground)]">
+                                  {action.title}
+                                  <ArrowUpRight className="h-3.5 w-3.5 text-[var(--muted-foreground)] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-[var(--primary)]" />
+                                </span>
+                                <span className="mt-1 block text-[12.5px] leading-5 text-[var(--muted-foreground)]">
+                                  {action.description}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-center text-xs text-[var(--muted-foreground)]">
+                    {t("输入你的问题、上传学习材料，或选择一个方向立即开始。")}
+                  </p>
+                </section>
               </div>
             ) : (
               <div
