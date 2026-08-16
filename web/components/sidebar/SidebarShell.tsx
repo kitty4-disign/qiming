@@ -60,21 +60,21 @@ function BrandMark({ className = "" }: { className?: string }) {
 const PRIMARY_NAV: NavEntry[] = [
   {
     href: "/education",
-    label: "AI Classroom",
+    label: "AI 课堂",
     icon: GraduationCap,
     tooltipKey: "AI Classroom tooltip",
     requires: "llm",
   },
   {
     href: "/home",
-    label: "Home",
+    label: "学习对话",
     icon: House,
     tooltipKey: "Home tooltip",
     requires: "llm",
   },
   {
     href: "/partners",
-    label: "Partners",
+    label: "学习伙伴",
     icon: HeartHandshake,
     tooltipKey: "Partners tooltip",
     requires: "llm",
@@ -85,27 +85,27 @@ const PRIMARY_NAV: NavEntry[] = [
     // and manage imported agent conversations. Ungated — managing connections
     // and imports needs no per-user model grant.
     href: "/agents",
-    label: "My Agents",
+    label: "我的智能体",
     icon: Bot,
     tooltipKey: "Agents tooltip",
   },
   {
     href: "/co-writer",
-    label: "Co-Writer",
+    label: "共写空间",
     icon: PenLine,
     tooltipKey: "Co-Writer tooltip",
     requires: "llm",
   },
   {
     href: "/book",
-    label: "Book",
+    label: "研读书库",
     icon: Library,
     tooltipKey: "Book tooltip",
     requires: "llm",
   },
   {
     href: "/space",
-    label: "Learning Space",
+    label: "学习空间",
     icon: LayoutGrid,
     tooltipKey: "Space tooltip",
   },
@@ -117,7 +117,7 @@ const SECONDARY_NAV: NavEntry[] = [
     // a place to inspect and curate the tutor's long-term memory, not a daily
     // workspace. Never gated — memory has no per-user model requirement.
     href: "/memory",
-    label: "Memory",
+    label: "学习记忆",
     icon: Brain,
     tooltipKey: "Memory tooltip",
   },
@@ -126,13 +126,13 @@ const SECONDARY_NAV: NavEntry[] = [
     // KBs and retrieval engines, not a daily workspace. Never gated — embedding
     // / search are shared admin infrastructure, no per-user model grant needed.
     href: "/knowledge",
-    label: "Knowledge Center",
+    label: "知识中心",
     icon: BookOpen,
     tooltipKey: "Knowledge tooltip",
   },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/settings",     label: "偏好设置", icon: Settings },
 ];
-const GITHUB_REPO_URL = "https://github.com/HKUDS/DeepTutor";
+const GITHUB_REPO_URL = "https://github.com/kitty4-disign/qiming";
 const DOCS_URL = "https://deeptutor.info/";
 const RECENTS_COLLAPSED_KEY = "deeptutor.sidebar.recentsCollapsed";
 
@@ -217,7 +217,7 @@ export function SidebarShell({
         <div className="relative mb-2 flex h-9 w-9 items-center justify-center">
           <Link
             href="/"
-            aria-label="启明"
+            aria-label={t("启明")}
             className="flex items-center justify-center transition-opacity duration-150 group-hover/sb:opacity-0"
           >
             <BrandMark />
@@ -325,8 +325,8 @@ export function SidebarShell({
             href={GITHUB_REPO_URL}
             target="_blank"
             rel="noreferrer noopener"
-            title="GitHub"
-            aria-label="GitHub"
+            title={t("GitHub")}
+            aria-label={t("GitHub")}
             className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)]/70 transition-colors hover:bg-[var(--background)]/50 hover:text-[var(--foreground)]"
           >
             <Github size={15} strokeWidth={1.6} />
@@ -339,17 +339,22 @@ export function SidebarShell({
 
   /* ---- Expanded state ---- */
   return (
-    <aside className="flex w-[220px] h-screen shrink-0 flex-col bg-[var(--secondary)] transition-all duration-200">
+    <aside className="flex h-screen w-[248px] shrink-0 flex-col border-r border-[var(--border)]/75 bg-[var(--secondary)]/88 shadow-[10px_0_32px_-28px_rgba(7,71,77,0.38)] backdrop-blur-xl transition-all duration-200">
       {/* Header: logo + collapse toggle */}
-      <div className="flex h-14 items-center justify-between px-4">
+      <div className="flex h-[68px] items-center justify-between px-4">
         <Link
           href="/"
-          aria-label="启明"
+          aria-label={t("启明")}
           className="group flex items-center gap-2"
         >
           <BrandMark className="transition-transform duration-200 group-hover:scale-105" />
-          <span className="font-serif text-[17px] font-semibold leading-none tracking-tight text-[var(--foreground)] transition-transform duration-200 group-hover:scale-105">
-            启明
+          <span className="flex flex-col gap-1">
+            <span className="font-serif text-[18px] font-semibold leading-none tracking-tight text-[var(--foreground)] transition-transform duration-200 group-hover:scale-105">
+              {t("启明")}
+            </span>
+            <span className="text-[9px] font-semibold tracking-[0.18em] text-[var(--primary)]">
+              {t("LEARNING STUDIO")}
+            </span>
           </span>
         </Link>
         <button
@@ -363,7 +368,10 @@ export function SidebarShell({
 
       {/* Primary nav */}
       <nav className="px-2 pt-1">
-        <div className="space-y-px">
+        <p className="px-3 pb-2 text-[10px] font-semibold tracking-[0.16em] text-[var(--muted-foreground)]/80">
+          {t("学习工作台")}
+        </p>
+        <div className="space-y-1">
           {PRIMARY_NAV.map((item) => {
             const active = pathname.startsWith(item.href);
             const locked = navLocked(item);
@@ -394,8 +402,8 @@ export function SidebarShell({
                 onClick={item.href === "/home" ? handleHomeClick : undefined}
                 className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] transition-colors ${
                   active
-                    ? "bg-[var(--accent)] font-medium text-[var(--foreground)]"
-                    : "text-[var(--foreground)]/85 hover:bg-[var(--background)]/60 hover:text-[var(--foreground)]"
+                    ? "bg-[var(--primary)]/[0.11] font-semibold text-[var(--primary)] shadow-[inset_3px_0_0_var(--primary)]"
+                    : "text-[var(--foreground)]/82 hover:bg-[var(--card)]/80 hover:text-[var(--foreground)]"
                 }`}
               >
                 <item.icon size={16} strokeWidth={active ? 1.9 : 1.5} />
@@ -416,7 +424,7 @@ export function SidebarShell({
           <button
             type="button"
             onClick={toggleRecents}
-            className="group/recents mx-2 flex items-center justify-between rounded-md px-2 py-1 text-left text-[11.5px] font-normal text-[var(--muted-foreground)]/60 transition-colors hover:bg-[var(--background)]/40 hover:text-[var(--muted-foreground)]"
+            className="group/recents mx-2 flex items-center justify-between rounded-lg px-3 py-1.5 text-left text-[11px] font-semibold tracking-[0.12em] text-[var(--muted-foreground)]/75 transition-colors hover:bg-[var(--card)]/70 hover:text-[var(--muted-foreground)]"
             aria-expanded={!recentsCollapsed}
             aria-label={
               recentsCollapsed
@@ -424,7 +432,7 @@ export function SidebarShell({
                 : (t("Hide recents") as string)
             }
           >
-            <span>{t("Recents")}</span>
+            <span>{t("最近对话")}</span>
             <ChevronDown
               size={13}
               strokeWidth={1.7}
@@ -459,7 +467,10 @@ export function SidebarShell({
         recentsCollapsed) && <div className="flex-1" />}
 
       {/* Secondary nav + footer */}
-      <div className="border-t border-[var(--border)]/40 px-2 py-2">
+      <div className="border-t border-[var(--border)]/60 px-2 py-3">
+        <p className="px-3 pb-1.5 text-[10px] font-semibold tracking-[0.16em] text-[var(--muted-foreground)]/70">
+          {t("资源与设置")}
+        </p>
         {SECONDARY_NAV.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
@@ -494,8 +505,8 @@ export function SidebarShell({
             href={GITHUB_REPO_URL}
             target="_blank"
             rel="noreferrer noopener"
-            title="GitHub"
-            aria-label="GitHub"
+            title={t("GitHub")}
+            aria-label={t("GitHub")}
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)]/55 transition-colors hover:bg-[var(--background)]/50 hover:text-[var(--muted-foreground)]"
           >
             <Github size={13} strokeWidth={1.7} />
